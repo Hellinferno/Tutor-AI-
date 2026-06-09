@@ -1,0 +1,31 @@
+openapi: 3.1.0
+info:
+  title: StudyLab Phase 1 API
+  version: 0.1.0
+servers:
+  - url: /v1
+paths:
+  /notebooks:
+    post:
+      summary: Create a source notebook
+  /notebooks/{notebook_id}/sources/upload:
+    post:
+      summary: Upload text, notes, or extracted PDF text into a notebook
+  /notebooks/{notebook_id}/sources/{source_id}:
+    get:
+      summary: Fetch source metadata and source guide
+  /notebooks/{notebook_id}/ask:
+    post:
+      summary: Ask a hybrid-retrieved, source-grounded notebook question with citations
+  /notebooks/{notebook_id}/artifacts/generate:
+    post:
+      summary: Generate summary notes, study guide, planner, timetable, or revision cards
+  /solve:
+    post:
+      summary: Solve a text or OCR-derived question with verification where possible
+  /solve/{solution_id}/reveal:
+    post:
+      summary: Reveal a stored solution step without re-solving
+  /notion/export:
+    post:
+      summary: Export a generated artifact to Notion

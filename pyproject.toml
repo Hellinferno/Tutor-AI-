@@ -1,0 +1,9 @@
+[project]
+name = "studylab-phase1"
+version = "0.1.0"
+description = "NotebookLM-inspired Phase 1 RAG and verified solver slice."
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+pythonpath = ["packages/studylab_core"]
+testpaths = ["tests"]

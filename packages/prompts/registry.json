@@ -1,0 +1,22 @@
+{
+  "source_guide": {
+    "file": "source_guide.md",
+    "description": "Generate a source guide (summary, key concepts, suggested questions) for an uploaded source."
+  },
+  "notebook_answer": {
+    "file": "notebook_answer.md",
+    "description": "Answer a notebook question strictly from retrieved source chunks, with citations and low-confidence refusal."
+  },
+  "solver_system": {
+    "file": "solver_system.md",
+    "description": "System prompt for the verified solver: never claim verification without an objective check."
+  },
+  "artifact_summary_notes": {
+    "file": "artifact_summary_notes.md",
+    "description": "Render summary notes for a notebook from its source guides and citations."
+  },
+  "artifact_study_guide": {
+    "file": "artifact_study_guide.md",
+    "description": "Render a study guide with concepts to master and practice prompts."
+  }
+}

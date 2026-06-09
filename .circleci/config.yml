@@ -1,0 +1,28 @@
+version: 2.1
+
+jobs:
+  python-test:
+    docker:
+      - image: cimg/python:3.12
+    steps:
+      - checkout
+      - run:
+          name: Run unit and integration tests
+          command: python -m unittest discover tests
+      - run:
+          name: Run solver eval gate
+          command: python packages/eval/run_eval.py
+  web-static:
+    docker:
+      - image: cimg/node:22.11
+    steps:
+      - checkout
+      - run:
+          name: Validate workspace manifests
+          command: node -e "JSON.parse(require('fs').readFileSync('package.json','utf8')); JSON.parse(require('fs').readFileSync('apps/web/package.json','utf8'))"
+
+workflows:
+  phase1:
+    jobs:
+      - python-test
+      - web-static

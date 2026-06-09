@@ -1,0 +1,5 @@
+{
+  "ai_ds": ["gradient descent", "mean squared error", "feature scaling", "model validation"],
+  "analytics": ["hypothesis testing", "confidence interval", "regression", "SQL aggregation"],
+  "finance": ["net present value", "internal rate of return", "time value of money", "valuation ratios"]
+}
