@@ -9,7 +9,7 @@ is **not built yet**. Keep this document accurate as the source of truth on proj
 
 ---
 
-## ✅ Done, working, and tested (Phase 0 + Phase 1)
+## ✅ Done, working, and tested (Phase 0 + Phase 1 + Phase 2)
 
 | Area | State |
 |---|---|
@@ -17,7 +17,7 @@ is **not built yet**. Keep this document accurate as the source of truth on proj
 | Local env + `.env.example` | ✅ |
 | Docker Compose (postgres, redis, qdrant, gateway, rag, solver, shared volume) | ✅ |
 | Dockerfiles for gateway, rag, solver | ✅ |
-| DB migration (full Phase 1 schema) | ✅ written |
+| DB migration (full Phase 1 + Phase 2 schema) | ✅ written |
 | Gateway + rag + solver services (runnable, `/health` + functional routes) | ✅ |
 | Shared API contracts (OpenAPI + TypeScript types) | ✅ |
 | Notebook creation, source upload, source guides | ✅ |
@@ -32,9 +32,14 @@ is **not built yet**. Keep this document accurate as the source of truth on proj
 | Prompt template library + loader | ✅ |
 | Eval gate (15 cases, `false_verified_rate=0`) | ✅ |
 | Web app build (Next 15) | ✅ |
-| Test suite (24 tests) | ✅ |
+| **Phase 2 — Teaching engine** (whiteboard concept progression, cited explanations) | ✅ |
+| **Phase 2 — Quiz generation** (MCQ / true‑false / short‑answer; from notebook or topic) | ✅ |
+| **Phase 2 — Question‑paper generation** (sectioned, marks, duration) | ✅ |
+| **Phase 2 — Verified answer keys** (deterministic source/option checks) | ✅ |
+| **Phase 2 — Auto‑eval + reports** (attempt scoring, weak/strong topics, summary) | ✅ |
+| Test suite (44 tests) | ✅ |
 
-**The Phase 1 acceptance gate passes.** See [10-testing-and-eval.md](10-testing-and-eval.md).
+**The Phase 1 and Phase 2 acceptance gates pass.** See [10-testing-and-eval.md](10-testing-and-eval.md).
 
 ---
 
@@ -61,20 +66,24 @@ integration needs an external service or credentials (and can't be runtime‑ver
 
 From [Instructions/10-development-phases.md](../Instructions/10-development-phases.md):
 
-- **Phase 2** — teaching engine with whiteboard, quiz generation, exam‑paper generation, verified
-  answer keys, auto‑eval reports.
 - **Phase 3** — student model, spaced‑repetition scheduling, progress analytics, voice I/O,
   weak‑topic revision cards.
 - **Phase 4** — multi‑agent teaching, mobile, scaling/pricing/economics, more source connectors
   (websites, YouTube, audio, Google Docs/Slides).
 
 *(The `sessions` and `revision_cards` tables already exist in the schema in anticipation of
-Phases 2–3.)*
+Phase 3.)*
+
+> 🟢 **Note on Phase 2 quality:** the teaching explanations, quiz questions, and paper questions are
+> built **deterministically from your uploaded sources** (and source guides), with answer keys
+> verified by structural checks — not by a language model that might hallucinate. This keeps Phase 2
+> runnable offline and consistent with Phase 1's "no unverified claims" rule. Swapping in an LLM
+> for richer phrasing is a later, env‑gated enhancement.
 
 ---
 
 ## One‑line summary
 
-> **Phase 0 + Phase 1 are complete, tested, and self‑contained.** Postgres, Qdrant, real
-> embeddings/OCR, and Redis are intentionally left as env‑gated adapters; Phases 2–4 are planned
-> and not yet built.
+> **Phase 0 + Phase 1 + Phase 2 are complete, tested (44 tests), and self‑contained.** Postgres,
+> Qdrant, real embeddings/OCR, and Redis are intentionally left as env‑gated adapters; Phases 3–4
+> are planned and not yet built.

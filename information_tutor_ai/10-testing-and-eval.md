@@ -12,7 +12,7 @@ The project's quality gate: what runs, what it proves, and the Phase 1 acceptanc
 
 | Command | What it checks | Current result |
 |---|---|---|
-| `python -m unittest discover tests` | 24 unit/integration tests | ✅ 24 passed |
+| `python -m unittest discover tests` | 44 unit/integration tests | ✅ 44 passed |
 | `python packages/eval/run_eval.py` | solver verification gate | ✅ 15 cases, `false_verified_rate=0` |
 | `cd apps/web && npm run build` | web compiles + type‑checks + prerenders | ✅ green |
 
@@ -21,7 +21,7 @@ push — see [.circleci/config.yml](../.circleci/config.yml).
 
 ---
 
-## The test suite (24 tests)
+## The test suite (44 tests)
 
 ### `tests/test_phase1_core.py` — 12 tests
 - **Chunking**: offsets are stable (a chunk's `[start:end]` slice reproduces its text).
@@ -41,6 +41,23 @@ push — see [.circleci/config.yml](../.circleci/config.yml).
 - **Prompts**: every registered prompt loads; unknown name raises; placeholders render.
 - **Service router**: `Route` matches methods and extracts path params.
 - **OCR** solve path.
+
+### `tests/test_phase2_core.py` — 20 tests
+- **Teaching**: a session builds a concept progression starting at index 0; next/prev navigate;
+  concepts carry explanations, whiteboard elements, and at least one **cited** concept; an empty
+  notebook still yields a graceful fallback session.
+- **Quizzes**: generates MCQ, true‑false, and short‑answer questions; the default view **hides**
+  `correct_answer`; the answer key is fully `verified`; a quiz can be generated **from a topic**
+  with no sources.
+- **Papers**: generates a sectioned paper with marks + duration; hides answers by default; the
+  answer key is `verified`; topic‑only generation works.
+- **Eval**: correct answers score full marks; wrong answers score zero; reports include
+  `percentage` and a `summary`; paper attempts score too.
+- **Edge cases**: quiz/paper generation on an empty notebook (no sources, no topic) raises
+  `ValueError`; teaching on an empty notebook does not.
+
+> The gateway HTTP routing for all Phase 2 endpoints (start→get→next/prev, generate→get→answer‑key
+> →attempt→report) is additionally smoke‑tested end‑to‑end against a live `ThreadingHTTPServer`.
 
 ---
 
@@ -67,10 +84,30 @@ From [Instructions/10-development-phases.md](../Instructions/10-development-phas
 
 | Gate criterion | Status |
 |---|---|
-| Tests pass | ✅ 24/24 |
+| Tests pass | ✅ 44/44 |
 | `false_verified_rate=0` | ✅ |
 | Cited answers include source metadata | ✅ (`source_title`, `chunk_index`, offsets, snippet, score) |
 | Weak retrieval refuses grounding | ✅ (`insufficient_source_support`) |
 
 ➡️ **The Phase 1 gate passes.** Caveat on scope (live Postgres/Qdrant/etc.) in
 [11-current-status.md](11-current-status.md).
+
+---
+
+## Phase 2 acceptance gate (from the spec)
+
+From [Instructions/10-development-phases.md](../Instructions/10-development-phases.md), Phase 2 is
+*teaching engine with whiteboard, quiz generation, question‑paper generation, verified answer keys,
+and auto‑eval/reports.*
+
+| Gate criterion | Status |
+|---|---|
+| Teaching engine with whiteboard | ✅ (`TeachingEngine`, cited concept progression) |
+| Quiz generation (notebook or topic) | ✅ (`QuizEngine`, 3 question types) |
+| Question‑paper generation | ✅ (`PaperEngine`, sectioned, marks + duration) |
+| Verified answer keys | ✅ (every keyed answer carries `verified` + `verification_method`) |
+| Auto‑eval and reports | ✅ (`EvalEngine`: scored attempts → reports) |
+| Tests pass | ✅ 20 Phase 2 tests + gateway HTTP smoke test |
+
+➡️ **The Phase 2 gate passes.** As with Phase 1, content is derived deterministically from sources
+to keep it offline‑runnable and free of unverified claims.

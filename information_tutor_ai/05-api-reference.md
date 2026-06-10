@@ -19,6 +19,10 @@ machine‑readable spec is [docs/openapi.phase1.yml](../docs/openapi.phase1.yml)
 | Generate artifact | ✅ | ✅ | — |
 | Solve / reveal | ✅ | — | ✅ |
 | Notion export | ✅ | — | — |
+| **Teaching** (start / get / next / prev) | ✅ | ✅ | — |
+| **Quizzes** (generate / get / answer‑key / attempt) | ✅ | ✅ | — |
+| **Papers** (generate / get / answer‑key / attempt) | ✅ | ✅ | — |
+| **Reports** (get / generate) | ✅ | ✅ | — |
 
 The **gateway** exposes the full surface in‑process. `rag` and `solver` expose their slices.
 
@@ -108,6 +112,72 @@ Export an artifact to Notion (real API if `NOTION_API_KEY`, else mock when `NOTI
 { "artifact_id": "…", "parent_page_id": null, "data_source_id": null, "mock": true }
 // response
 { "connected": true, "message": "…", "page_id": "…", "page_url": "https://notion.local/…" }
+```
+
+---
+
+## Phase 2 endpoints — teaching, quizzes, papers, reports
+
+All questions, explanations, and answer keys are derived **deterministically from notebook
+sources** (or a supplied `topic`); answer keys carry a `verified` flag and a
+`verification_method`.
+
+### `POST /v1/notebooks/{id}/teaching/start`
+Start a whiteboard teaching session; returns the concept progression.
+```json
+// response
+{ "id": "session_…", "notebook_id": "…", "current_concept_idx": 0, "completed": false,
+  "concepts": [ { "name": "…", "explanation": "From your sources: …",
+                  "citations": [ … ], "whiteboard": [ { "type": "math", "katex": "…" } ] } ] }
+```
+
+### `GET /v1/teaching/{session_id}`
+Fetch a session. `POST /v1/teaching/{session_id}/next` and `…/prev` move the cursor (and set
+`completed` at the end). All return the full session object.
+
+### `POST /v1/notebooks/{id}/quizzes/generate`
+Generate a quiz from the notebook (or a `topic` when the notebook is empty).
+```json
+// request
+{ "num_questions": 5, "question_types": ["mcq", "true_false", "short_answer"], "topic": null }
+// response: { id, notebook_id, title, topic, questions: [ { id, type, question_text,
+//             correct_answer, points, difficulty, options?, citations? } ] }
+```
+
+### `GET /v1/quizzes/{quiz_id}`  ·  `?include_answers=true`
+Fetch a quiz. By default `correct_answer` is blanked (student view); `include_answers=true`
+returns the keyed version.
+
+### `POST /v1/quizzes/{quiz_id}/answer-key`
+Return the verified answer key: `{ id, source_id, source_type: "quiz", verified, verification_method,
+answers: [ { question_id, correct_answer, verified, verification_method, … } ] }`.
+
+### `POST /v1/quizzes/{quiz_id}/attempt`
+Submit answers for auto‑grading.
+```json
+// request
+{ "answers": [ { "question_id": "…", "answer": "True" } ] }
+// response: an attempt { id, source_id, source_type, total_score, max_score, answers: [ { correct, score, feedback } ] }
+```
+
+### `POST /v1/notebooks/{id}/papers/generate`
+Generate a sectioned exam paper (defaults to MCQ + true/false + short‑answer sections).
+```json
+// request
+{ "sections": null, "duration_minutes": 60, "topic": null }
+// response: { id, title, total_marks, duration_minutes, sections: [ { title, instructions, questions[] } ] }
+```
+
+### `GET /v1/papers/{paper_id}` (`?include_answers=true`) · `POST …/answer-key` · `POST …/attempt`
+Same shapes as the quiz routes (`source_type: "paper"`). Attempts accept either quiz or paper ids.
+
+### `GET /v1/reports/{attempt_id}`  (also `POST /v1/reports/{attempt_id}/generate`)
+Build an evaluation report from a graded attempt.
+```json
+// response
+{ "id": "report_…", "attempt_id": "…", "total_score": 2, "max_score": 2, "percentage": 100.0,
+  "per_question": [ … ], "weak_topics": [ … ], "strong_topics": [ … ],
+  "summary": "Excellent: 2/2 correct (100.0%). …" }
 ```
 
 ---

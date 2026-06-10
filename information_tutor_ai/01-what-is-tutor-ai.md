@@ -62,6 +62,20 @@ From your notebook it can generate:
 
 And it can **export** these to **Notion** (a popular note‑taking app).
 
+### 6. It teaches, quizzes, and tests you
+Once you have sources in a notebook, Tutor‑AI can:
+- **Teach** the material as a step‑by‑step "whiteboard" walk‑through of the key concepts — each
+  explanation drawn from (and cited back to) your own notes.
+- **Generate quizzes** — multiple‑choice, true/false, and short‑answer — either from your sources
+  or from a topic you name.
+- **Generate full question papers** with sections, marks, and a time limit.
+- **Grade your attempts automatically** and give you a **report**: your score, which topics you got
+  right, which you missed, and a short summary.
+
+> 🟢 **Same honesty rule:** the questions and the answer keys are built **from your sources** (not
+> invented), and every answer key is **checked** before it's trusted — so practice doesn't teach you
+> something wrong.
+
 ---
 
 ## A day‑in‑the‑life example
@@ -77,13 +91,13 @@ And it can **export** these to **Notion** (a popular note‑taking app).
 
 ## What's built right now (and what isn't)
 
-✅ **Built and working today** (Phase 0 + Phase 1): notebooks, source upload, source guides,
-grounded answers with citations, honest refusal, verified math/finance/code solving, study
-artifacts, Notion export, and durable saving of your data.
+✅ **Built and working today** (Phase 0 + Phase 1 + Phase 2): notebooks, source upload, source
+guides, grounded answers with citations, honest refusal, verified math/finance/code solving, study
+artifacts, Notion export, durable saving of your data, **plus the teaching whiteboard, quizzes,
+question papers, verified answer keys, and auto‑graded reports.**
 
-🚧 **Planned for later** (not built yet): an interactive teaching engine with a whiteboard,
-auto‑generated quizzes and exam papers, long‑term memory and spaced‑repetition revision,
-progress analytics, and voice input/output.
+🚧 **Planned for later** (not built yet): long‑term memory and spaced‑repetition revision, progress
+analytics over time, voice input/output, multi‑agent teaching, and a mobile app.
 
 For the precise, honest breakdown see [11-current-status.md](11-current-status.md).
 

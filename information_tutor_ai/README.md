@@ -45,11 +45,13 @@ code changes, these documents should be updated to match.
 Tutor‑AI is a **NotebookLM‑inspired study assistant** for AI, data‑science, analytics, and
 finance learners. You upload your own study material into a "notebook," and the app answers
 your questions **using only those sources** (with citations), refuses to answer when it lacks
-support, **solves math/finance/coding problems and verifies the answers**, and generates study
+support, **solves math/finance/coding problems and verifies the answers**, generates study
 artifacts (summary notes, study guides, planners, revision cards) that can be exported to
-Notion. This repository contains the **Phase 0 + Phase 1 vertical slice**: a working,
-fully‑tested core that runs without any external cloud services.
+Notion, and **teaches, quizzes, and tests you** with verified answer keys and auto‑graded
+reports. This repository contains the **Phase 0 + Phase 1 + Phase 2 vertical slice**: a working,
+fully‑tested core (44 tests) that runs without any external cloud services.
 
-> 🟢 **Non‑developer note:** "Phase 0 + Phase 1" just means *the foundation and the first
-> complete feature set*. Later phases (teaching with a whiteboard, quizzes, memory/revision,
-> voice) are planned but not built yet. See [11-current-status.md](11-current-status.md).
+> 🟢 **Non‑developer note:** "Phase 0 + Phase 1 + Phase 2" just means *the foundation, the first
+> complete feature set, and the teaching/quiz/paper layer*. Later phases (long‑term
+> memory/revision, analytics, voice, mobile) are planned but not built yet. See
+> [11-current-status.md](11-current-status.md).

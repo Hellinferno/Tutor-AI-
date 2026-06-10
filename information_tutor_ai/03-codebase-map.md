@@ -36,12 +36,16 @@ tutor AI/
 
 | File | What it is |
 |---|---|
-| `app/layout.tsx`, `app/page.tsx`, `app/styles.css` | The Next.js app router root, main page, styles. |
+| `app/layout.tsx`, `app/page.tsx`, `app/styles.css` | The Next.js app router root, main page (wires all 8 panels), styles. |
 | `components/notebook-chat.tsx` | The grounded Q&A chat panel. |
 | `components/solve-panel.tsx` | The solve/verify panel. |
 | `components/source-panel.tsx` | Upload & list sources. |
 | `components/artifact-panel.tsx` | Generate & view study artifacts. |
-| `lib/api.ts` | Client calls to the backend. |
+| `components/teaching-panel.tsx` | **Phase 2** — whiteboard teaching panel. |
+| `components/quiz-panel.tsx` | **Phase 2** — quiz generator panel. |
+| `components/paper-panel.tsx` | **Phase 2** — question‑paper panel. |
+| `components/report-panel.tsx` | **Phase 2** — attempt report panel. |
+| `lib/api.ts` | Client calls to the backend (incl. Phase 2 teaching/quiz/paper/report calls). |
 | `package.json` | Scripts: `build` (`next build`), `dev`, `lint`, `typecheck`. |
 | `preview.html` | Static preview. |
 
@@ -56,8 +60,8 @@ Each service is a thin entrypoint over `studylab_core`. They share the env‑sel
 
 | File | Service | Port (env) | Routes |
 |---|---|---|---|
-| `gateway/app/main.py` | **gateway** | 8000 (`PORT`) | Full API (notebooks, sources, ask, solve, reveal, artifacts, notion). |
-| `rag/app/main.py` | **rag** | 8001 (`RAG_PORT`) | notebooks, sources upload/get, ask, artifacts generate. |
+| `gateway/app/main.py` | **gateway** | 8000 (`PORT`) | Full API (notebooks, sources, ask, solve, reveal, artifacts, notion, **teaching, quizzes, papers, reports**). |
+| `rag/app/main.py` | **rag** | 8001 (`RAG_PORT`) | notebooks, sources upload/get, ask, artifacts generate, **teaching, quizzes, papers, reports**. |
 | `solver/app/main.py` | **solver** | 8002 (`SOLVER_PORT`) | solve, reveal. |
 
 Each also keeps a small factory (`create_rag_engine`, `create_solver_engine`) for embedding the
@@ -71,15 +75,19 @@ engine in tests/other code. All expose `GET /health`.
 |---|---|
 | `__init__.py` | Public exports (`StudyLabAPI`, stores, engines, prompt loaders, `make_store_from_env`). |
 | `api.py` | `StudyLabAPI` façade — the method surface every service calls. |
-| `models.py` | Dataclasses: `Notebook`, `Source`, `SourceChunk`, `SourceGuide`, `Citation`, `Solution`, `Artifact`, responses; the `VerifyMethod`/`GroundingState`/`ArtifactType` literals. |
-| `store.py` | `InMemoryStudyLabStore` — default ephemeral store. |
-| `store_sqlite.py` | `SqliteStudyLabStore` — durable store with identical surface; `make_store_from_env`. |
+| `models.py` | Dataclasses: `Notebook`, `Source`, `SourceChunk`, `SourceGuide`, `Citation`, `Solution`, `Artifact`, responses, and **Phase 2**: `WhiteboardConcept`/`WhiteboardSession`, `QuizQuestion`/`Quiz`, `PaperSection`/`QuestionPaper`, `Attempt`, `AnswerKey`, `EvalReport`; the `VerifyMethod`/`GroundingState`/`ArtifactType`/`QuestionType`/`AttemptSourceType`/`Difficulty` literals. |
+| `store.py` | `InMemoryStudyLabStore` — default ephemeral store (incl. Phase 2 collections). |
+| `store_sqlite.py` | `SqliteStudyLabStore` — durable store with identical surface (incl. Phase 2 tables); `make_store_from_env`. |
 | `rag.py` | `RagEngine` — ingest, retrieve, `ask` (grounded answer or refusal). |
 | `retrieval.py` | `HybridRetriever` (sparse+dense+rerank), embedding provider interface, `QdrantHybridSearchAdapter`. |
 | `text_processing.py` | Chunking with offsets, source‑guide generation, citation building, sentence selection, tokeniser. |
 | `solver.py` | `SolverEngine` — symbolic, finance NPV, code‑exec routing; caching; reveal. |
 | `sandbox.py` | Code extraction, AST allowlist validation, isolated subprocess runner. |
 | `artifacts.py` | `ArtifactGenerator` — the five artifact renderers. |
+| `teaching.py` | **Phase 2** — `TeachingEngine`: builds a cited whiteboard concept progression from source guides + chunks. |
+| `quiz.py` | **Phase 2** — `QuizEngine`: generates MCQ/true‑false/short‑answer questions from sources or a topic; verified answer keys. |
+| `paper.py` | **Phase 2** — `PaperEngine`: assembles sectioned question papers (reusing `QuizEngine`); marks + duration. |
+| `eval.py` | **Phase 2** — `EvalEngine`: grades attempts deterministically and builds reports (percentage, weak/strong topics, summary). |
 | `notion.py` | `NotionExporter` — real Notion API + mock; Markdown→blocks. |
 | `prompts.py` | `load_prompt` / `render_prompt` / `list_prompts` over the registry. |
 | `service_http.py` | Minimal reusable HTTP router (`Route`, `serve`) used by rag/solver. |
@@ -91,6 +99,7 @@ engine in tests/other code. All expose `GET /health`.
 | Path | What it holds |
 |---|---|
 | `db/migrations/001_phase1_foundation.sql` | Postgres schema: users, notebooks, sources, source_chunks, source_guides, questions, solutions, artifacts, sessions, revision_cards + indexes & enums. |
+| `db/migrations/002_phase2_teaching_quiz.sql` | **Phase 2** Postgres schema: whiteboard_sessions, quizzes, quiz_questions, question_papers, paper_sections, attempts, answer_keys, eval_reports + indexes & enums. |
 | `eval/run_eval.py` | The solver quality gate (asserts `false_verified_rate == 0`). |
 | `eval/benchmarks/phase1_solver.json` | 15 benchmark cases (symbolic / formula / code_exec). |
 | `prompts/registry.json` + `*.md` | Prompt templates: source_guide, notebook_answer, solver_system, artifact_summary_notes, artifact_study_guide. |

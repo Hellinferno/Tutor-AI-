@@ -28,6 +28,8 @@ explainer at the top of each section.
                           │       │           └─ text_processing (chunk/guide)  │
                           │       ├─ SolverEngine ── sandbox (code exec)        │
                           │       ├─ ArtifactGenerator                          │
+                          │       ├─ TeachingEngine · QuizEngine (Phase 2)      │
+                          │       ├─ PaperEngine · EvalEngine   (Phase 2)       │
                           │       ├─ NotionExporter                             │
                           │       └─ Store (InMemory │ SQLite)                  │
                           └──────────────────────────────────────────────────────┘
@@ -49,9 +51,9 @@ explainer at the top of each section.
 
 | Component | Path | Role |
 |---|---|---|
-| **Web app** | [apps/web](../apps/web) | Next.js 15 / React 19 UI (notebook chat, solve, sources, artifacts panels). |
-| **Gateway service** | [services/gateway](../services/gateway) | HTTP front door exposing the full API. Uses the env‑selected store. |
-| **RAG service** | [services/rag](../services/rag) | Standalone HTTP service for notebook/source/ask/artifact routes. |
+| **Web app** | [apps/web](../apps/web) | Next.js 15 / React 19 UI (notebook chat, solve, sources, artifacts, teaching, quiz, paper, report panels). |
+| **Gateway service** | [services/gateway](../services/gateway) | HTTP front door exposing the full API (incl. Phase 2 teaching/quiz/paper/report routes). Uses the env‑selected store. |
+| **RAG service** | [services/rag](../services/rag) | Standalone HTTP service for notebook/source/ask/artifact + Phase 2 teaching/quiz/paper/report routes. |
 | **Solver service** | [services/solver](../services/solver) | Standalone HTTP service for solve/reveal routes. |
 | **Core engine** | [packages/studylab_core](../packages/studylab_core) | The dependency‑light brain shared by all services. |
 | **DB migrations** | [packages/db](../packages/db) | Postgres schema (production target). |
@@ -81,6 +83,14 @@ together:
   + isolated subprocess execution.
 - **ArtifactGenerator** ([artifacts.py](../packages/studylab_core/studylab_core/artifacts.py)) —
   the five study artifacts.
+- **TeachingEngine** ([teaching.py](../packages/studylab_core/studylab_core/teaching.py)) *(Phase 2)*
+  — builds a cited whiteboard concept progression from source guides + chunks.
+- **QuizEngine** ([quiz.py](../packages/studylab_core/studylab_core/quiz.py)) *(Phase 2)* —
+  generates MCQ/true‑false/short‑answer questions (from sources or a topic) with verified keys.
+- **PaperEngine** ([paper.py](../packages/studylab_core/studylab_core/paper.py)) *(Phase 2)* —
+  assembles sectioned question papers (reusing `QuizEngine`) with marks + duration.
+- **EvalEngine** ([eval.py](../packages/studylab_core/studylab_core/eval.py)) *(Phase 2)* — grades
+  attempts deterministically and builds reports (percentage, weak/strong topics, summary).
 - **NotionExporter** ([notion.py](../packages/studylab_core/studylab_core/notion.py)) — real
   Notion API call + a mock mode for local demos.
 - **Store** — [InMemoryStudyLabStore](../packages/studylab_core/studylab_core/store.py) or
@@ -119,6 +129,22 @@ together:
    from the notebook's source guides + citations.
 2. `POST /v1/notion/export` → `NotionExporter` (real API if `NOTION_API_KEY` set, else mock when
    `NOTION_MOCK_EXPORT=true`).
+
+### D) "Quiz me, then grade my attempt" *(Phase 2)*
+> 🟢 Build practice questions from *your* sources, hide the answers, grade what you submit, and
+> report what to revise.
+
+1. `POST /v1/notebooks/{id}/quizzes/generate` → `QuizEngine.generate_quiz` draws concepts from
+   source guides + sentences from chunks (or a supplied `topic`) and emits typed questions with
+   citations.
+2. `GET /v1/quizzes/{id}` returns the **student view** (answers blanked); `POST …/answer-key`
+   returns the **verified** key (each answer carries `verified` + `verification_method`).
+3. `POST /v1/quizzes/{id}/attempt` → `EvalEngine.evaluate_attempt` scores each answer
+   deterministically → an `attempt`.
+4. `GET /v1/reports/{attempt_id}` → `EvalEngine.generate_report`: percentage, weak/strong topics,
+   and a summary. Question papers (`PaperEngine`) follow the same generate → key → attempt → report
+   path with `source_type = "paper"`. Teaching sessions use
+   `POST /v1/notebooks/{id}/teaching/start` then `GET /v1/teaching/{id}` + `…/next` / `…/prev`.
 
 ---
 
