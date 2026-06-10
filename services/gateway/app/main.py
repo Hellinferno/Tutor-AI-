@@ -24,6 +24,20 @@ class StudyLabHandler(BaseHTTPRequestHandler):
         if len(parts) == 5 and parts[:2] == ["v1", "notebooks"] and parts[3] == "sources":
             self._handle(lambda: api.get_source(parts[4]))
             return
+        if len(parts) == 3 and parts[:2] == ["v1", "teaching"]:
+            self._handle(lambda: api.get_teaching_session(session_id=parts[2]))
+            return
+        if len(parts) == 3 and parts[:2] == ["v1", "quizzes"]:
+            include = self._get_query_param("include_answers", "false").lower() == "true"
+            self._handle(lambda: api.get_quiz(quiz_id=parts[2], include_answers=include))
+            return
+        if len(parts) == 3 and parts[:2] == ["v1", "papers"]:
+            include = self._get_query_param("include_answers", "false").lower() == "true"
+            self._handle(lambda: api.get_paper(paper_id=parts[2], include_answers=include))
+            return
+        if len(parts) == 3 and parts[:2] == ["v1", "reports"]:
+            self._handle(lambda: api.get_report(attempt_id=parts[2]))
+            return
         self._json(404, {"error": {"code": "not_found", "message": f"No route for GET {path}"}})
 
     def do_POST(self) -> None:
@@ -54,6 +68,64 @@ class StudyLabHandler(BaseHTTPRequestHandler):
                     title=payload.get("title"),
                 )
             )
+            return
+        # ── Phase 2: Teaching ──
+        if len(parts) == 5 and parts[:2] == ["v1", "notebooks"] and parts[3:] == ["teaching", "start"]:
+            self._handle(lambda: api.start_teaching(notebook_id=parts[2]))
+            return
+        if len(parts) == 4 and parts[:2] == ["v1", "teaching"] and parts[3] == "next":
+            self._handle(lambda: api.teaching_next(session_id=parts[2]))
+            return
+        if len(parts) == 4 and parts[:2] == ["v1", "teaching"] and parts[3] == "prev":
+            self._handle(lambda: api.teaching_prev(session_id=parts[2]))
+            return
+        # ── Phase 2: Quizzes ──
+        if len(parts) == 5 and parts[:2] == ["v1", "notebooks"] and parts[3:] == ["quizzes", "generate"]:
+            self._handle(
+                lambda: api.generate_quiz(
+                    notebook_id=parts[2],
+                    num_questions=payload.get("num_questions", 5),
+                    question_types=payload.get("question_types"),
+                    topic=payload.get("topic"),
+                )
+            )
+            return
+        if len(parts) == 4 and parts[:2] == ["v1", "quizzes"] and parts[3] == "answer-key":
+            self._handle(lambda: api.get_quiz_answer_key(quiz_id=parts[2]))
+            return
+        if len(parts) == 4 and parts[:2] == ["v1", "quizzes"] and parts[3] == "attempt":
+            self._handle(
+                lambda: api.submit_attempt(
+                    source_id=parts[2], source_type="quiz",
+                    answers=payload["answers"], user_id=payload.get("user_id", "demo-user"),
+                )
+            )
+            return
+        # ── Phase 2: Question Papers ──
+        if len(parts) == 5 and parts[:2] == ["v1", "notebooks"] and parts[3:] == ["papers", "generate"]:
+            self._handle(
+                lambda: api.generate_paper(
+                    notebook_id=parts[2],
+                    sections=payload.get("sections"),
+                    duration_minutes=payload.get("duration_minutes", 60),
+                    topic=payload.get("topic"),
+                )
+            )
+            return
+        if len(parts) == 4 and parts[:2] == ["v1", "papers"] and parts[3] == "answer-key":
+            self._handle(lambda: api.get_paper_answer_key(paper_id=parts[2]))
+            return
+        if len(parts) == 4 and parts[:2] == ["v1", "papers"] and parts[3] == "attempt":
+            self._handle(
+                lambda: api.submit_attempt(
+                    source_id=parts[2], source_type="paper",
+                    answers=payload["answers"], user_id=payload.get("user_id", "demo-user"),
+                )
+            )
+            return
+        # ── Phase 2: Reports ──
+        if len(parts) == 4 and parts[:2] == ["v1", "reports"] and parts[3] == "generate":
+            self._handle(lambda: api.get_report(attempt_id=parts[2]))
             return
         if parts == ["v1", "solve"]:
             self._handle(
@@ -90,6 +162,12 @@ class StudyLabHandler(BaseHTTPRequestHandler):
 
     def _parts(self, path: str) -> list[str]:
         return [part for part in path.strip("/").split("/") if part]
+
+    def _get_query_param(self, name: str, default: str = "") -> str:
+        from urllib.parse import parse_qs
+        parsed = urlparse(self.path)
+        params = parse_qs(parsed.query)
+        return params.get(name, [default])[0]
 
     def _read_json(self) -> dict[str, Any]:
         length = int(self.headers.get("Content-Length", "0"))

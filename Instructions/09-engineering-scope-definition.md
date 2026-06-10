@@ -15,11 +15,15 @@
 - Stored step reveal.
 - Study artifacts: summary notes, study guide, planner, timetable, revision cards.
 - Notion export adapter with mock local mode.
+- Teaching whiteboard sessions.
+- Quiz generation from notebook sources or topic hints.
+- Question paper generation.
+- Verified answer keys.
+- Auto-evaluation attempts and reports.
 
 ## Later phase scope
 - Full PDF parser and slide parser.
 - Websites, YouTube, audio, and Google Docs imports.
-- Live quizzes and full question papers.
 - Student mastery model and advanced spaced repetition.
 - Voice STT/TTS.
 - Full production auth and billing.

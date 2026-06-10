@@ -225,6 +225,166 @@ sup {
   font-weight: 700;
 }
 
+/* ── Phase 2: Teaching ── */
+.conceptDisplay {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.conceptNav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.conceptNav button {
+  background: white;
+  color: var(--ink);
+  padding: 4px 12px;
+  min-height: 30px;
+  font-size: 13px;
+}
+
+.conceptCounter {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.conceptName {
+  display: block;
+  font-size: 16px;
+  margin-bottom: 6px;
+}
+
+.conceptExplanation {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ── Phase 2: Quiz ── */
+.quizGen {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.typeBtn {
+  background: white;
+  color: var(--ink);
+  font-size: 12px;
+  min-height: 28px;
+  padding: 0 6px;
+}
+
+.quizQuestion {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.quizOptions {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.quizOptions label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.submitBtn {
+  background: var(--blue);
+}
+
+/* ── Phase 2: Papers ── */
+.paperHeader {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 10px;
+}
+
+.paperSection {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.paperSection p {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.secondary {
+  background: white;
+  color: var(--ink);
+}
+
+/* ── Phase 2: Reports ── */
+.reportSummary {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 14px;
+  text-align: center;
+}
+
+.scoreCircle strong {
+  font-size: 36px;
+  display: block;
+}
+
+.scoreCircle small {
+  font-size: 16px;
+}
+
+.reportLevel {
+  margin-top: 8px;
+  font-size: 14px;
+}
+
+.reportBreakdown {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.topicRow {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 14px;
+}
+
+.strongTag {
+  color: var(--green);
+  font-weight: 700;
+}
+
+.weakTag {
+  color: var(--red);
+  font-weight: 700;
+}
+
+@media (max-width: 900px) {
+  .paperHeader {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .quizGen {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 900px) {
   .shell {
     grid-template-columns: 1fr;

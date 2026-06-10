@@ -1,122 +1,17 @@
 [
-  {
-    "id": "math-001",
-    "subject": "analytics",
-    "question": "What is 2 + 2 * 3?",
-    "expected_answer": "8",
-    "must_verify": true,
-    "method": "symbolic"
-  },
-  {
-    "id": "math-002",
-    "subject": "analytics",
-    "question": "Evaluate (3 + 5) * 2.",
-    "expected_answer": "16",
-    "must_verify": true,
-    "method": "symbolic"
-  },
-  {
-    "id": "math-003",
-    "subject": "analytics",
-    "question": "What is 7 * 6?",
-    "expected_answer": "42",
-    "must_verify": true,
-    "method": "symbolic"
-  },
-  {
-    "id": "math-004",
-    "subject": "analytics",
-    "question": "Compute 2 ^ 10.",
-    "expected_answer": "1024",
-    "must_verify": true,
-    "method": "symbolic"
-  },
-  {
-    "id": "math-005",
-    "subject": "analytics",
-    "question": "What is 100 / 8?",
-    "expected_answer": "12.5",
-    "must_verify": true,
-    "method": "symbolic"
-  },
-  {
-    "id": "math-006",
-    "subject": "analytics",
-    "question": "Calculate 15 - 3 * 4 + 2.",
-    "expected_answer": "5",
-    "must_verify": true,
-    "method": "symbolic"
-  },
-  {
-    "id": "math-007",
-    "subject": "analytics",
-    "question": "What is 9 + 9 + 9?",
-    "expected_answer": "27",
-    "must_verify": true,
-    "method": "symbolic"
-  },
-  {
-    "id": "math-008",
-    "subject": "analytics",
-    "question": "Compute (12 - 4) / 2 + 6.",
-    "expected_answer": "10",
-    "must_verify": true,
-    "method": "symbolic"
-  },
-  {
-    "id": "finance-001",
-    "subject": "finance",
-    "question": "Calculate NPV at 10% for cash flows -100, 60, 60.",
-    "expected_answer": "4.13",
-    "must_verify": true,
-    "method": "formula"
-  },
-  {
-    "id": "finance-002",
-    "subject": "finance",
-    "question": "Calculate NPV at 5% for cash flows -200, 120, 120.",
-    "expected_answer": "23.13",
-    "must_verify": true,
-    "method": "formula"
-  },
-  {
-    "id": "finance-003",
-    "subject": "finance",
-    "question": "Compute the net present value at 8% for cash flows -500, 200, 200, 200.",
-    "expected_answer": "15.42",
-    "must_verify": true,
-    "method": "formula"
-  },
-  {
-    "id": "code-001",
-    "subject": "analytics",
-    "question": "```python\nprint(6 * 7)\n```",
-    "expected_answer": "42",
-    "must_verify": true,
-    "method": "code_exec"
-  },
-  {
-    "id": "code-002",
-    "subject": "analytics",
-    "question": "```python\nimport math\nprint(round(math.sqrt(144)))\n```",
-    "expected_answer": "12",
-    "must_verify": true,
-    "method": "code_exec"
-  },
-  {
-    "id": "code-003",
-    "subject": "analytics",
-    "question": "```python\nimport statistics\nprint(statistics.mean([2, 4, 6]))\n```",
-    "expected_answer": "4",
-    "must_verify": true,
-    "method": "code_exec"
-  },
-  {
-    "id": "code-004",
-    "subject": "analytics",
-    "question": "```python\ntotal = sum(i*i for i in range(1, 6))\nprint(total)\n```",
-    "expected_answer": "55",
-    "must_verify": true,
-    "method": "code_exec"
-  }
+  { "id": "math-001", "subject": "analytics", "question": "What is 2 + 2 * 3?", "expected_answer": "8", "must_verify": true },
+  { "id": "math-002", "subject": "analytics", "question": "Calculate 10 - 4 / 2 + 1", "expected_answer": "9", "must_verify": true },
+  { "id": "math-003", "subject": "analytics", "question": "What is (5 + 3) * 2?", "expected_answer": "16", "must_verify": true },
+  { "id": "math-004", "subject": "analytics", "question": "Compute 7 * 8 - 10", "expected_answer": "46", "must_verify": true },
+  { "id": "math-005", "subject": "analytics", "question": "Solve 144 / 12 + 3 * 2", "expected_answer": "18", "must_verify": true },
+  { "id": "finance-001", "subject": "finance", "question": "Calculate NPV at 10% for cash flows -100, 60, 60.", "expected_answer": "4.13", "must_verify": true },
+  { "id": "finance-002", "subject": "finance", "question": "Calculate NPV at 8% for cash flows -200, 110, 121.", "expected_answer": "5.59", "must_verify": true },
+  { "id": "finance-003", "subject": "finance", "question": "Net present value at 5% for cash flows -500, 200, 200, 200.", "expected_answer": "44.65", "must_verify": true },
+  { "id": "finance-004", "subject": "finance", "question": "NPV at 12% for cash flows -1000, 400, 400, 400.", "expected_answer": "-39.27", "must_verify": true },
+  { "id": "code-001", "subject": "ai_ds", "question": "```python\nprint(6 * 7)\n```", "expected_answer": "42", "must_verify": true },
+  { "id": "code-002", "subject": "ai_ds", "question": "```python\nprint(2 ** 10)\n```", "expected_answer": "1024", "must_verify": true },
+  { "id": "code-003", "subject": "ai_ds", "question": "```python\nimport math\nprint(math.sqrt(144))\n```", "expected_answer": "12.0", "must_verify": true },
+  { "id": "code-004", "subject": "ai_ds", "question": "```python\nprint(sum(range(1, 11)))\n```", "expected_answer": "55", "must_verify": true },
+  { "id": "unverified-001", "subject": "ai_ds", "question": "Explain what gradient descent is.", "expected_answer": null, "must_verify": false },
+  { "id": "unverified-002", "subject": "analytics", "question": "Why is p-value important in hypothesis testing?", "expected_answer": null, "must_verify": false }
 ]

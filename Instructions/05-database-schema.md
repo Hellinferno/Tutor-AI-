@@ -87,6 +87,96 @@ Primary database: PostgreSQL. Cache: Redis. Vector store: Qdrant.
 | notion_page_url | text nullable | |
 | created_at | timestamptz | |
 
+### whiteboard_sessions
+| column | type | notes |
+|---|---|---|
+| id | uuid PK | |
+| notebook_id | uuid FK | |
+| current_concept_idx | int | current teaching concept |
+| concept_progression | jsonb | ordered whiteboard concepts |
+| completed | bool | |
+| created_at | timestamptz | |
+
+### quizzes
+| column | type | notes |
+|---|---|---|
+| id | uuid PK | |
+| notebook_id | uuid FK | |
+| title | text | |
+| topic | text nullable | optional topic hint |
+| num_questions | int | |
+| created_at | timestamptz | |
+
+### quiz_questions
+| column | type | notes |
+|---|---|---|
+| id | uuid PK | |
+| quiz_id | uuid FK | |
+| type | enum(mcq, true_false, short_answer) | |
+| question_text | text | |
+| options | jsonb | |
+| correct_answer | text | hidden unless answer key requested |
+| points | int | |
+| difficulty | enum(easy, medium, hard) | |
+| citations | jsonb | |
+| idx | int | stable ordering |
+
+### question_papers
+| column | type | notes |
+|---|---|---|
+| id | uuid PK | |
+| notebook_id | uuid FK | |
+| title | text | |
+| total_marks | int | |
+| duration_minutes | int | |
+| created_at | timestamptz | |
+
+### paper_sections
+| column | type | notes |
+|---|---|---|
+| id | uuid PK | |
+| paper_id | uuid FK | |
+| title | text | |
+| instructions | text | |
+| idx | int | stable ordering |
+
+### answer_keys
+| column | type | notes |
+|---|---|---|
+| id | uuid PK | |
+| source_id | uuid | quiz_id or paper_id |
+| source_type | enum(quiz, paper) | |
+| answers | jsonb | includes per-answer verified and verification_method |
+| verified | bool | all answer keys passed deterministic checks |
+| verification_method | text | key-level verification method |
+| generated_at | timestamptz | |
+
+### attempts
+| column | type | notes |
+|---|---|---|
+| id | uuid PK | |
+| source_id | uuid | quiz_id or paper_id |
+| source_type | enum(quiz, paper) | |
+| user_id | uuid FK | |
+| answers | jsonb | scored answers |
+| total_score | float | |
+| max_score | float | |
+| completed_at | timestamptz | |
+
+### eval_reports
+| column | type | notes |
+|---|---|---|
+| id | uuid PK | |
+| attempt_id | uuid FK | |
+| total_score | float | |
+| max_score | float | |
+| percentage | float | |
+| per_question | jsonb | |
+| weak_topics | jsonb | |
+| strong_topics | jsonb | |
+| summary | text | |
+| created_at | timestamptz | |
+
 ### revision_cards
 | column | type | notes |
 |---|---|---|

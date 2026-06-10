@@ -4,7 +4,21 @@ from dataclasses import asdict, is_dataclass
 from typing import Any
 from uuid import uuid4
 
-from .models import Artifact, Notebook, Solution, Source, SourceChunk, SourceGuide
+from .models import (
+    AnswerKey,
+    Artifact,
+    Attempt,
+    EvalReport,
+    Notebook,
+    QuestionPaper,
+    Quiz,
+    QuizQuestion,
+    Solution,
+    Source,
+    SourceChunk,
+    SourceGuide,
+    WhiteboardSession,
+)
 
 
 class InMemoryStudyLabStore:
@@ -18,6 +32,15 @@ class InMemoryStudyLabStore:
         self.solutions: dict[str, Solution] = {}
         self.solution_by_hash: dict[str, str] = {}
         self.artifacts: dict[str, Artifact] = {}
+
+        # Phase 2 stores
+        self.whiteboard_sessions: dict[str, WhiteboardSession] = {}
+        self.quizzes: dict[str, Quiz] = {}
+        self.quiz_questions: dict[str, QuizQuestion] = {}
+        self.question_papers: dict[str, QuestionPaper] = {}
+        self.attempts: dict[str, Attempt] = {}
+        self.answer_keys: dict[str, AnswerKey] = {}
+        self.eval_reports: dict[str, EvalReport] = {}
 
     def next_id(self, prefix: str) -> str:
         return f"{prefix}_{uuid4().hex[:12]}"
@@ -110,6 +133,70 @@ class InMemoryStudyLabStore:
     def notebook_guides(self, notebook_id: str) -> list[SourceGuide]:
         source_ids = {source.id for source in self.sources.values() if source.notebook_id == notebook_id}
         return [guide for source_id, guide in self.guides.items() if source_id in source_ids]
+
+    # ── Phase 2: Teaching, Quizzes, Papers, Eval ──────────────────────────
+
+    def add_whiteboard_session(self, session: WhiteboardSession) -> WhiteboardSession:
+        self.whiteboard_sessions[session.id] = session
+        return session
+
+    def require_whiteboard_session(self, session_id: str) -> WhiteboardSession:
+        try:
+            return self.whiteboard_sessions[session_id]
+        except KeyError as exc:
+            raise KeyError(f"Whiteboard session not found: {session_id}") from exc
+
+    def add_quiz(self, quiz: Quiz) -> Quiz:
+        self.quizzes[quiz.id] = quiz
+        for q in quiz.questions:
+            self.quiz_questions[q.id] = q
+        return quiz
+
+    def require_quiz(self, quiz_id: str) -> Quiz:
+        try:
+            return self.quizzes[quiz_id]
+        except KeyError as exc:
+            raise KeyError(f"Quiz not found: {quiz_id}") from exc
+
+    def add_question_paper(self, paper: QuestionPaper) -> QuestionPaper:
+        self.question_papers[paper.id] = paper
+        return paper
+
+    def require_question_paper(self, paper_id: str) -> QuestionPaper:
+        try:
+            return self.question_papers[paper_id]
+        except KeyError as exc:
+            raise KeyError(f"Question paper not found: {paper_id}") from exc
+
+    def add_attempt(self, attempt: Attempt) -> Attempt:
+        self.attempts[attempt.id] = attempt
+        return attempt
+
+    def require_attempt(self, attempt_id: str) -> Attempt:
+        try:
+            return self.attempts[attempt_id]
+        except KeyError as exc:
+            raise KeyError(f"Attempt not found: {attempt_id}") from exc
+
+    def add_answer_key(self, key: AnswerKey) -> AnswerKey:
+        self.answer_keys[key.id] = key
+        return key
+
+    def require_answer_key(self, key_id: str) -> AnswerKey:
+        try:
+            return self.answer_keys[key_id]
+        except KeyError as exc:
+            raise KeyError(f"Answer key not found: {key_id}") from exc
+
+    def add_eval_report(self, report: EvalReport) -> EvalReport:
+        self.eval_reports[report.id] = report
+        return report
+
+    def require_eval_report(self, report_id: str) -> EvalReport:
+        try:
+            return self.eval_reports[report_id]
+        except KeyError as exc:
+            raise KeyError(f"Eval report not found: {report_id}") from exc
 
     def to_plain(self, value: Any) -> Any:
         if is_dataclass(value):

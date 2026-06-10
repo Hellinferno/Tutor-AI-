@@ -9,6 +9,10 @@ ArtifactType = Literal["summary_notes", "study_guide", "planner", "timetable", "
 GroundingState = Literal["from_sources", "general_knowledge", "insufficient_source_support"]
 VerifyMethod = Literal["code_exec", "symbolic", "formula", "self_consistency", "cross_model", "unverified"]
 
+QuestionType = Literal["mcq", "true_false", "short_answer"]
+AttemptSourceType = Literal["quiz", "paper"]
+Difficulty = Literal["easy", "medium", "hard"]
+
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -115,3 +119,95 @@ class NotionExportResult:
     message: str
     page_url: str | None = None
     page_id: str | None = None
+
+
+# ── Phase 2: Teaching, Quizzes, Papers, Eval ──────────────────────────────
+
+@dataclass
+class WhiteboardConcept:
+    name: str
+    explanation: str
+    citations: list[Citation]
+    whiteboard: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass
+class WhiteboardSession:
+    id: str
+    notebook_id: str
+    current_concept_idx: int
+    concepts: list[WhiteboardConcept]
+    completed: bool = False
+
+
+@dataclass
+class QuizQuestion:
+    id: str
+    type: QuestionType
+    question_text: str
+    correct_answer: str
+    points: int
+    difficulty: Difficulty = "medium"
+    options: list[str] | None = None
+    citations: list[Citation] | None = None
+
+
+@dataclass
+class Quiz:
+    id: str
+    notebook_id: str
+    title: str
+    questions: list[QuizQuestion]
+    topic: str | None = None
+
+
+@dataclass
+class PaperSection:
+    title: str
+    instructions: str
+    questions: list[QuizQuestion]
+
+
+@dataclass
+class QuestionPaper:
+    id: str
+    notebook_id: str
+    title: str
+    sections: list[PaperSection]
+    total_marks: int
+    duration_minutes: int
+
+
+@dataclass
+class Attempt:
+    id: str
+    source_id: str
+    source_type: AttemptSourceType
+    user_id: str
+    answers: list[dict]
+    total_score: float
+    max_score: float
+    completed_at: str = field(default_factory=utc_now)
+
+
+@dataclass
+class AnswerKey:
+    id: str
+    source_id: str
+    source_type: AttemptSourceType
+    answers: list[dict]
+    verified: bool = True
+    verification_method: str = "deterministic_source_check"
+
+
+@dataclass
+class EvalReport:
+    id: str
+    attempt_id: str
+    total_score: float
+    max_score: float
+    percentage: float
+    per_question: list[dict]
+    weak_topics: list[str]
+    strong_topics: list[str]
+    summary: str

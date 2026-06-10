@@ -1,8 +1,8 @@
-# StudyLab Phase 1
+# StudyLab Phase 0-2
 
 NotebookLM-inspired AI study lab for AI, data science, analytics, and finance learners.
 
-This repository implements the Phase 1 vertical slice:
+This repository implements the Phase 0-2 vertical slice:
 
 - notebooks and source upload
 - source guide generation
@@ -11,6 +11,10 @@ This repository implements the Phase 1 vertical slice:
 - cacheable reveal-ready solution steps
 - OCR adapter contract
 - student-facing Notion artifact export
+- teaching whiteboard sessions
+- quiz generation with verified answer keys
+- question paper generation with verified answer keys
+- auto-evaluation attempts and reports
 - durable SQLite persistence (opt-in) alongside the in-memory store
 - runnable gateway, rag, and solver services with Dockerfiles and Compose
 - a prompt template library with a loader
@@ -65,6 +69,10 @@ The solver's `code_exec` path runs snippets in an isolated subprocess (`python -
 Prompt templates live in `packages/prompts` (indexed by `registry.json`) and are loaded via `studylab_core.load_prompt` / `render_prompt`. Override the directory with `STUDYLAB_PROMPTS_DIR`.
 
 Set `NOTION_MOCK_EXPORT=true` for local Notion export demos. Set `NOTION_API_KEY` to use the real Notion API.
+
+## Phase 2 Learning Surfaces
+
+Phase 2 adds deterministic local engines for teaching, quizzes, papers, answer keys, attempts, and reports. Answer keys include `verified` and `verification_method` metadata so the product can distinguish checked keys from draft content.
 
 ## RAG Architecture
 

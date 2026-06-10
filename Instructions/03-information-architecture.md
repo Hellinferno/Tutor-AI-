@@ -5,7 +5,7 @@
 - **Solve**: verified problem solving with stored step reveal.
 - **Artifacts**: summary notes, study guides, planners, timetables, revision cards.
 - **Notion Export**: send generated artifacts to private Notion pages.
-- **Practice**: quizzes and question papers, later phase.
+- **Practice**: quizzes, question papers, answer keys, attempts, and reports.
 - **Revise**: spaced repetition, later phase.
 - **Progress**: mastery analytics, later phase.
 - **Settings**: subject domain, privacy, Notion connection, API keys.
@@ -30,6 +30,11 @@ Root
 |   |-- Revision cards
 |   |-- Export to Notion
 |-- Practice
+|   |-- Quiz generator
+|   |-- Question paper generator
+|   |-- Answer keys
+|   |-- Attempts
+|   |-- Reports
 |-- Revise
 |-- Progress
 |-- Settings
@@ -46,6 +51,11 @@ Root
 - **Solution**: answer, reveal-ready steps, verification method, citations.
 - **Artifact**: summary notes, study guide, planner, timetable, revision cards.
 - **NotionExport**: target page, result URL, connection status.
+- **WhiteboardSession**: ordered teaching concept progression.
+- **Quiz**: generated questions and hidden answer key.
+- **QuestionPaper**: sections, marks, duration, generated questions.
+- **Attempt**: submitted answers and score.
+- **EvalReport**: feedback, weak topics, strong topics, summary.
 
 ## Content flow
 ```text

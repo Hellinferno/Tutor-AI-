@@ -40,10 +40,22 @@
   - AC: Private Notion page is default.
   - AC: If Notion is not connected, error explains how to connect or use mock export.
 
-## Epic 5: Later learning workflows
-- US5.1: Generate live quizzes from material or topic.
-- US5.2: Generate full question papers from material or topic.
-- US5.3: Track mastery and schedule spaced repetition.
+## Epic 5: Teaching, quizzes, papers, and reports
+- US5.1: Start a teaching whiteboard session from notebook concepts.
+  - AC: Session has ordered concepts, current index, explanations, and navigation.
+- US5.2: Generate live quizzes from notebook sources or a topic hint.
+  - AC: Quiz supports MCQ, true/false, and short answer.
+  - AC: Answers are hidden by default.
+  - AC: Answer key includes verified metadata.
+- US5.3: Generate full question papers.
+  - AC: Paper has sections, marks, duration, hidden answers, and verified answer key.
+- US5.4: Submit quiz or paper attempts.
+  - AC: Attempt returns scored answers, total score, max score, and feedback.
+- US5.5: Generate evaluation report.
+  - AC: Report includes percentage, per-question feedback, weak topics, strong topics, and summary.
+
+## Epic 6: Later learning workflows
+- US6.1: Track mastery and schedule advanced spaced repetition.
 
 ## Global acceptance gates
 - No false verified answers.

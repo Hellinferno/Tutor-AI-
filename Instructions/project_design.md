@@ -26,7 +26,11 @@ StudyLab is a source-grounded technical study workspace. The first product surfa
 - Source panel: uploaded material and source guide.
 - Ask panel: cited notebook answer.
 - Solve panel: verified answer and reveal action.
+- Teaching panel: concept walk-through and whiteboard navigation.
+- Quiz panel: generated MCQ, true/false, and short-answer practice.
+- Paper panel: sectioned question papers and answer-key access.
 - Artifact panel: summary, study guide, planner, timetable, revision cards, Notion export.
+- Report panel: attempt score and feedback summary.
 
 ## RAG behavior
 - Search is scoped to notebook.
@@ -43,7 +47,6 @@ StudyLab is a source-grounded technical study workspace. The first product surfa
 - Conceptual: cited but not verified unless cross-check passes.
 
 ## Deferred
-- Full quiz and question paper workflows.
 - Full mastery analytics.
 - Voice.
 - Native mobile.

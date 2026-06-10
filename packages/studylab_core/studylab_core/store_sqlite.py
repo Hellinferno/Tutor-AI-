@@ -8,7 +8,22 @@ from dataclasses import asdict, is_dataclass
 from typing import Any, Callable
 from uuid import uuid4
 
-from .models import Artifact, Citation, Notebook, Solution, Source, SourceChunk, SourceGuide
+from .models import (
+    AnswerKey,
+    Artifact,
+    Attempt,
+    Citation,
+    EvalReport,
+    Notebook,
+    QuestionPaper,
+    Quiz,
+    QuizQuestion,
+    Solution,
+    Source,
+    SourceChunk,
+    SourceGuide,
+    WhiteboardSession,
+)
 
 
 SCHEMA = """
@@ -62,6 +77,57 @@ CREATE TABLE IF NOT EXISTS artifacts (
   content_markdown TEXT NOT NULL,
   citations TEXT NOT NULL,
   created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS whiteboard_sessions (
+  id TEXT PRIMARY KEY,
+  notebook_id TEXT NOT NULL,
+  current_concept_idx INTEGER NOT NULL,
+  concepts TEXT NOT NULL,
+  completed INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS quizzes (
+  id TEXT PRIMARY KEY,
+  notebook_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  topic TEXT,
+  questions TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS question_papers (
+  id TEXT PRIMARY KEY,
+  notebook_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  sections TEXT NOT NULL,
+  total_marks INTEGER NOT NULL,
+  duration_minutes INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS attempts (
+  id TEXT PRIMARY KEY,
+  source_id TEXT NOT NULL,
+  source_type TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  answers TEXT NOT NULL,
+  total_score REAL NOT NULL,
+  max_score REAL NOT NULL,
+  completed_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS answer_keys (
+  id TEXT PRIMARY KEY,
+  source_id TEXT NOT NULL,
+  source_type TEXT NOT NULL,
+  answers TEXT NOT NULL,
+  verified INTEGER NOT NULL DEFAULT 1,
+  verification_method TEXT NOT NULL DEFAULT 'deterministic_source_check'
+);
+CREATE TABLE IF NOT EXISTS eval_reports (
+  id TEXT PRIMARY KEY,
+  attempt_id TEXT NOT NULL,
+  total_score REAL NOT NULL,
+  max_score REAL NOT NULL,
+  percentage REAL NOT NULL,
+  per_question TEXT NOT NULL,
+  weak_topics TEXT NOT NULL,
+  strong_topics TEXT NOT NULL,
+  summary TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_chunks_notebook ON source_chunks (notebook_id);
 CREATE INDEX IF NOT EXISTS idx_solutions_hash ON solutions (question_hash, created_at);
@@ -133,6 +199,7 @@ class SqliteStudyLabStore:
         self._conn.execute("PRAGMA foreign_keys=ON")
         with self._lock:
             self._conn.executescript(SCHEMA)
+            self._ensure_compat_columns()
             self._conn.commit()
 
         self.notebooks = _TableView(self._all_notebooks, self._get_notebook)
@@ -141,6 +208,21 @@ class SqliteStudyLabStore:
         self.guides = _TableView(self._all_guides, self.get_guide)
         self.solutions = _TableView(self._all_solutions, self._get_solution)
         self.artifacts = _TableView(self._all_artifacts, self._get_artifact)
+        self.whiteboard_sessions = _TableView(self._all_whiteboard_sessions, self._get_whiteboard_session)
+        self.quizzes = _TableView(self._all_quizzes, self._get_quiz)
+        self.question_papers = _TableView(self._all_question_papers, self._get_question_paper)
+        self.attempts = _TableView(self._all_attempts, self._get_attempt)
+        self.answer_keys = _TableView(self._all_answer_keys, self._get_answer_key)
+        self.eval_reports = _TableView(self._all_eval_reports, self._get_eval_report)
+
+    def _ensure_compat_columns(self) -> None:
+        columns = {row["name"] for row in self._conn.execute("PRAGMA table_info(answer_keys)").fetchall()}
+        if "verified" not in columns:
+            self._conn.execute("ALTER TABLE answer_keys ADD COLUMN verified INTEGER NOT NULL DEFAULT 1")
+        if "verification_method" not in columns:
+            self._conn.execute(
+                "ALTER TABLE answer_keys ADD COLUMN verification_method TEXT NOT NULL DEFAULT 'deterministic_source_check'"
+            )
 
     # -- identity & serialization -------------------------------------------------
 
@@ -283,6 +365,158 @@ class SqliteStudyLabStore:
             self._conn.commit()
         return artifact
 
+    # ── Phase 2 writes ─────────────────────────────────────────────────────
+
+    def add_whiteboard_session(self, session: WhiteboardSession) -> WhiteboardSession:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO whiteboard_sessions (id, notebook_id, current_concept_idx, concepts, completed) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (
+                    session.id,
+                    session.notebook_id,
+                    session.current_concept_idx,
+                    json.dumps([asdict(c) for c in session.concepts]),
+                    int(session.completed),
+                ),
+            )
+            self._conn.commit()
+        return session
+
+    def save_whiteboard_session(self, session: WhiteboardSession) -> WhiteboardSession:
+        with self._lock:
+            self._conn.execute(
+                "UPDATE whiteboard_sessions SET current_concept_idx=?, concepts=?, completed=? WHERE id=?",
+                (
+                    session.current_concept_idx,
+                    json.dumps([asdict(c) for c in session.concepts]),
+                    int(session.completed),
+                    session.id,
+                ),
+            )
+            self._conn.commit()
+        return session
+
+    def add_quiz(self, quiz: Quiz) -> Quiz:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO quizzes (id, notebook_id, title, topic, questions) VALUES (?, ?, ?, ?, ?)",
+                (quiz.id, quiz.notebook_id, quiz.title, quiz.topic, json.dumps([asdict(q) for q in quiz.questions])),
+            )
+            self._conn.commit()
+        return quiz
+
+    def add_question_paper(self, paper: QuestionPaper) -> QuestionPaper:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO question_papers (id, notebook_id, title, sections, total_marks, duration_minutes) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    paper.id,
+                    paper.notebook_id,
+                    paper.title,
+                    json.dumps([asdict(s) for s in paper.sections]),
+                    paper.total_marks,
+                    paper.duration_minutes,
+                ),
+            )
+            self._conn.commit()
+        return paper
+
+    def add_attempt(self, attempt: Attempt) -> Attempt:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO attempts (id, source_id, source_type, user_id, answers, total_score, max_score, completed_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    attempt.id,
+                    attempt.source_id,
+                    attempt.source_type,
+                    attempt.user_id,
+                    json.dumps(attempt.answers),
+                    attempt.total_score,
+                    attempt.max_score,
+                    attempt.completed_at,
+                ),
+            )
+            self._conn.commit()
+        return attempt
+
+    def add_answer_key(self, key: AnswerKey) -> AnswerKey:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO answer_keys (id, source_id, source_type, answers, verified, verification_method) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    key.id,
+                    key.source_id,
+                    key.source_type,
+                    json.dumps(key.answers),
+                    1 if key.verified else 0,
+                    key.verification_method,
+                ),
+            )
+            self._conn.commit()
+        return key
+
+    def add_eval_report(self, report: EvalReport) -> EvalReport:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO eval_reports (id, attempt_id, total_score, max_score, percentage, per_question, weak_topics, strong_topics, summary) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    report.id,
+                    report.attempt_id,
+                    report.total_score,
+                    report.max_score,
+                    report.percentage,
+                    json.dumps(report.per_question),
+                    json.dumps(report.weak_topics),
+                    json.dumps(report.strong_topics),
+                    report.summary,
+                ),
+            )
+            self._conn.commit()
+        return report
+
+    # -- Phase 2 reads -----------------------------------------------------------
+
+    def require_whiteboard_session(self, session_id: str) -> WhiteboardSession:
+        session = self._get_whiteboard_session(session_id)
+        if session is None:
+            raise KeyError(f"Whiteboard session not found: {session_id}")
+        return session
+
+    def require_quiz(self, quiz_id: str) -> Quiz:
+        quiz = self._get_quiz(quiz_id)
+        if quiz is None:
+            raise KeyError(f"Quiz not found: {quiz_id}")
+        return quiz
+
+    def require_question_paper(self, paper_id: str) -> QuestionPaper:
+        paper = self._get_question_paper(paper_id)
+        if paper is None:
+            raise KeyError(f"Question paper not found: {paper_id}")
+        return paper
+
+    def require_attempt(self, attempt_id: str) -> Attempt:
+        attempt = self._get_attempt(attempt_id)
+        if attempt is None:
+            raise KeyError(f"Attempt not found: {attempt_id}")
+        return attempt
+
+    def require_answer_key(self, key_id: str) -> AnswerKey:
+        key = self._get_answer_key(key_id)
+        if key is None:
+            raise KeyError(f"Answer key not found: {key_id}")
+        return key
+
+    def require_eval_report(self, report_id: str) -> EvalReport:
+        report = self._get_eval_report(report_id)
+        if report is None:
+            raise KeyError(f"Eval report not found: {report_id}")
+        return report
+
     # -- reads --------------------------------------------------------------------
 
     def get_cached_solution(self, question_hash: str) -> Solution | None:
@@ -393,6 +627,84 @@ class SqliteStudyLabStore:
             created_at=row["created_at"],
         )
 
+    # ── Phase 2 row mappers ──────────────────────────────────────────────
+
+    def _row_to_whiteboard_session(self, row: sqlite3.Row) -> WhiteboardSession:
+        from .models import WhiteboardConcept
+
+        concepts_data = json.loads(row["concepts"])
+        concepts = [WhiteboardConcept(**c) for c in concepts_data]
+        return WhiteboardSession(
+            id=row["id"],
+            notebook_id=row["notebook_id"],
+            current_concept_idx=row["current_concept_idx"],
+            concepts=concepts,
+            completed=bool(row["completed"]),
+        )
+
+    def _row_to_quiz(self, row: sqlite3.Row) -> Quiz:
+        questions_data = json.loads(row["questions"])
+        questions = [QuizQuestion(**q) for q in questions_data]
+        return Quiz(
+            id=row["id"],
+            notebook_id=row["notebook_id"],
+            title=row["title"],
+            topic=row["topic"],
+            questions=questions,
+        )
+
+    def _row_to_question_paper(self, row: sqlite3.Row) -> QuestionPaper:
+        from .models import PaperSection
+
+        sections_data = json.loads(row["sections"])
+        sections = []
+        for s in sections_data:
+            questions = [QuizQuestion(**q) for q in s["questions"]]
+            sections.append(PaperSection(title=s["title"], instructions=s["instructions"], questions=questions))
+        return QuestionPaper(
+            id=row["id"],
+            notebook_id=row["notebook_id"],
+            title=row["title"],
+            sections=sections,
+            total_marks=row["total_marks"],
+            duration_minutes=row["duration_minutes"],
+        )
+
+    def _row_to_attempt(self, row: sqlite3.Row) -> Attempt:
+        return Attempt(
+            id=row["id"],
+            source_id=row["source_id"],
+            source_type=row["source_type"],
+            user_id=row["user_id"],
+            answers=json.loads(row["answers"]),
+            total_score=row["total_score"],
+            max_score=row["max_score"],
+            completed_at=row["completed_at"],
+        )
+
+    def _row_to_answer_key(self, row: sqlite3.Row) -> AnswerKey:
+        return AnswerKey(
+            id=row["id"],
+            source_id=row["source_id"],
+            source_type=row["source_type"],
+            answers=json.loads(row["answers"]),
+            verified=bool(row["verified"]),
+            verification_method=row["verification_method"],
+        )
+
+    def _row_to_eval_report(self, row: sqlite3.Row) -> EvalReport:
+        return EvalReport(
+            id=row["id"],
+            attempt_id=row["attempt_id"],
+            total_score=row["total_score"],
+            max_score=row["max_score"],
+            percentage=row["percentage"],
+            per_question=json.loads(row["per_question"]),
+            weak_topics=json.loads(row["weak_topics"]),
+            strong_topics=json.loads(row["strong_topics"]),
+            summary=row["summary"],
+        )
+
     # -- single/all loaders backing the table views -------------------------------
 
     def _get_notebook(self, key: str) -> Notebook | None:
@@ -449,6 +761,68 @@ class SqliteStudyLabStore:
         with self._lock:
             rows = self._conn.execute("SELECT * FROM artifacts").fetchall()
         return {row["id"]: self._row_to_artifact(row) for row in rows}
+
+    # ── Phase 2 loaders ───────────────────────────────────────────────────
+
+    def _get_whiteboard_session(self, key: str) -> WhiteboardSession | None:
+        with self._lock:
+            row = self._conn.execute("SELECT * FROM whiteboard_sessions WHERE id=?", (key,)).fetchone()
+        return self._row_to_whiteboard_session(row) if row else None
+
+    def _all_whiteboard_sessions(self) -> dict[str, WhiteboardSession]:
+        with self._lock:
+            rows = self._conn.execute("SELECT * FROM whiteboard_sessions").fetchall()
+        return {row["id"]: self._row_to_whiteboard_session(row) for row in rows}
+
+    def _get_quiz(self, key: str) -> Quiz | None:
+        with self._lock:
+            row = self._conn.execute("SELECT * FROM quizzes WHERE id=?", (key,)).fetchone()
+        return self._row_to_quiz(row) if row else None
+
+    def _all_quizzes(self) -> dict[str, Quiz]:
+        with self._lock:
+            rows = self._conn.execute("SELECT * FROM quizzes").fetchall()
+        return {row["id"]: self._row_to_quiz(row) for row in rows}
+
+    def _get_question_paper(self, key: str) -> QuestionPaper | None:
+        with self._lock:
+            row = self._conn.execute("SELECT * FROM question_papers WHERE id=?", (key,)).fetchone()
+        return self._row_to_question_paper(row) if row else None
+
+    def _all_question_papers(self) -> dict[str, QuestionPaper]:
+        with self._lock:
+            rows = self._conn.execute("SELECT * FROM question_papers").fetchall()
+        return {row["id"]: self._row_to_question_paper(row) for row in rows}
+
+    def _get_attempt(self, key: str) -> Attempt | None:
+        with self._lock:
+            row = self._conn.execute("SELECT * FROM attempts WHERE id=?", (key,)).fetchone()
+        return self._row_to_attempt(row) if row else None
+
+    def _all_attempts(self) -> dict[str, Attempt]:
+        with self._lock:
+            rows = self._conn.execute("SELECT * FROM attempts").fetchall()
+        return {row["id"]: self._row_to_attempt(row) for row in rows}
+
+    def _get_answer_key(self, key: str) -> AnswerKey | None:
+        with self._lock:
+            row = self._conn.execute("SELECT * FROM answer_keys WHERE id=?", (key,)).fetchone()
+        return self._row_to_answer_key(row) if row else None
+
+    def _all_answer_keys(self) -> dict[str, AnswerKey]:
+        with self._lock:
+            rows = self._conn.execute("SELECT * FROM answer_keys").fetchall()
+        return {row["id"]: self._row_to_answer_key(row) for row in rows}
+
+    def _get_eval_report(self, key: str) -> EvalReport | None:
+        with self._lock:
+            row = self._conn.execute("SELECT * FROM eval_reports WHERE id=?", (key,)).fetchone()
+        return self._row_to_eval_report(row) if row else None
+
+    def _all_eval_reports(self) -> dict[str, EvalReport]:
+        with self._lock:
+            rows = self._conn.execute("SELECT * FROM eval_reports").fetchall()
+        return {row["id"]: self._row_to_eval_report(row) for row in rows}
 
     def close(self) -> None:
         with self._lock:

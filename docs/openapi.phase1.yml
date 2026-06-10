@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
-  title: StudyLab Phase 1 API
-  version: 0.1.0
+  title: StudyLab Phase 0-2 API
+  version: 0.2.0
 servers:
   - url: /v1
 paths:
@@ -29,3 +29,45 @@ paths:
   /notion/export:
     post:
       summary: Export a generated artifact to Notion
+  /notebooks/{notebook_id}/teaching/start:
+    post:
+      summary: Start a teaching whiteboard session for notebook concepts
+  /teaching/{session_id}:
+    get:
+      summary: Fetch a teaching whiteboard session
+  /teaching/{session_id}/next:
+    post:
+      summary: Advance to the next teaching concept
+  /teaching/{session_id}/prev:
+    post:
+      summary: Return to the previous teaching concept
+  /notebooks/{notebook_id}/quizzes/generate:
+    post:
+      summary: Generate a quiz from notebook sources or a topic hint
+  /quizzes/{quiz_id}:
+    get:
+      summary: Fetch a quiz, hiding answers unless include_answers=true
+  /quizzes/{quiz_id}/answer-key:
+    post:
+      summary: Generate a verified quiz answer key
+  /quizzes/{quiz_id}/attempt:
+    post:
+      summary: Submit quiz answers for auto-evaluation
+  /notebooks/{notebook_id}/papers/generate:
+    post:
+      summary: Generate a question paper from notebook sources
+  /papers/{paper_id}:
+    get:
+      summary: Fetch a question paper, hiding answers unless include_answers=true
+  /papers/{paper_id}/answer-key:
+    post:
+      summary: Generate a verified paper answer key
+  /papers/{paper_id}/attempt:
+    post:
+      summary: Submit paper answers for auto-evaluation
+  /reports/{attempt_id}:
+    get:
+      summary: Fetch an auto-evaluation report
+  /reports/{attempt_id}/generate:
+    post:
+      summary: Generate an auto-evaluation report

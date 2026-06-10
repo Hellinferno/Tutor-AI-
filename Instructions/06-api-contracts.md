@@ -137,3 +137,63 @@ If Notion is not connected:
 ```json
 { "connected": false, "message": "Connect Notion by setting NOTION_API_KEY..." }
 ```
+
+## Teaching whiteboard
+
+### POST /v1/notebooks/{notebook_id}/teaching/start
+Resp: whiteboard session with concept progression.
+
+### GET /v1/teaching/{session_id}
+Resp: current teaching session.
+
+### POST /v1/teaching/{session_id}/next
+Resp: session advanced to the next concept.
+
+### POST /v1/teaching/{session_id}/prev
+Resp: session moved to the previous concept.
+
+## Quizzes
+
+### POST /v1/notebooks/{notebook_id}/quizzes/generate
+Req:
+```json
+{ "num_questions": 5, "question_types": ["mcq", "true_false", "short_answer"], "topic": "gradient descent" }
+```
+Resp: quiz with generated questions from notebook sources.
+
+### GET /v1/quizzes/{quiz_id}?include_answers=false
+Resp: quiz view with answers hidden by default.
+
+### POST /v1/quizzes/{quiz_id}/answer-key
+Resp: verified answer key with per-answer `verified` and `verification_method`.
+
+### POST /v1/quizzes/{quiz_id}/attempt
+Req:
+```json
+{ "answers": [{"question_id": "q_123", "answer": "True"}], "user_id": "demo-user" }
+```
+Resp: scored attempt.
+
+## Question papers
+
+### POST /v1/notebooks/{notebook_id}/papers/generate
+Req:
+```json
+{ "duration_minutes": 60, "sections": [{"title": "MCQ", "num_questions": 3, "type": "mcq"}] }
+```
+Resp: question paper with sections and marks.
+
+### GET /v1/papers/{paper_id}?include_answers=false
+Resp: paper view with answers hidden by default.
+
+### POST /v1/papers/{paper_id}/answer-key
+Resp: verified answer key.
+
+### POST /v1/papers/{paper_id}/attempt
+Resp: scored attempt.
+
+## Reports
+
+### GET /v1/reports/{attempt_id}
+### POST /v1/reports/{attempt_id}/generate
+Resp: auto-evaluation report with score, percentage, per-question feedback, weak topics, and strong topics.
