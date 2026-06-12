@@ -25,8 +25,8 @@ users
          │        └─1 source_guides
          ├─< artifacts
          ├─< questions ──< solutions
-         ├─< sessions
-         ├─< revision_cards
+         ├─< sessions                                  (Phase 3)
+         ├─< revision_cards                            (Phase 3)
          ├─< whiteboard_sessions                       (Phase 2)
          ├─< quizzes ──< quiz_questions                (Phase 2)
          └─< question_papers ──< paper_sections        (Phase 2)
@@ -34,6 +34,8 @@ users
 attempts >── quiz | paper      (source_id + source_type)   (Phase 2)
   └─1 eval_reports                                          (Phase 2)
 answer_keys >── quiz | paper   (source_id + source_type)    (Phase 2)
+
+(user_id, notebook_id) ─1 student_profiles ──< topic_masteries   (Phase 3)
 ```
 `└─<` = one‑to‑many, `└─1` = one‑to‑one. (`users` and `notebooks` may be null on some rows in the
 current local flow, which defaults the owner to `demo-user`.)
@@ -71,8 +73,8 @@ A generated study document: `artifact_type`
 `citations` (JSON), optional `notion_page_url`.
 
 ### `sessions` & `revision_cards`
-Schema exists for upcoming phases: `sessions` (interaction logs) and `revision_cards` (spaced
-repetition with `due_date`, `interval_days`, `state`). *Defined now, exercised in Phase 3.*
+Now **active in Phase 3** (see the Phase 3 tables below). `sessions` logs study/quiz/paper/revision
+interactions (with a `kind`); `revision_cards` drives spaced repetition.
 
 ---
 
@@ -110,6 +112,28 @@ A report built from an attempt: `attempt_id`, `total_score`, `max_score`, `perce
 
 ---
 
+## Phase 3 tables (memory, mastery, sessions)
+
+Added in [003_phase3_revision_voice.sql](../packages/db/migrations/003_phase3_revision_voice.sql)
+(Postgres) and mirrored in the SQLite store. *(Voice is stateless — `VoiceResult` is returned, not
+stored.)*
+
+### `revision_cards`
+A spaced‑repetition flashcard: `id`, `user_id`, `notebook_id`, `topic`, `due_date`,
+`interval_days`, `state` (`queued|done|lapsed`), `easiness_factor`, `correct_streak`, `source`
+(`manual|eval_weak_topic`). Reviews apply an SM‑2 update.
+
+### `sessions`
+A study session log: `id`, `user_id`, `notebook_id`, `kind` (`study|quiz|paper|revision`),
+`started_at`, `ended_at`, `interactions` (JSON). Used by analytics for study time.
+
+### `student_profiles` & `topic_masteries`
+- `student_profiles`: one per `(user_id, notebook_id)`, with `updated_at`.
+- `topic_masteries`: `student_profile_id`, `topic`, `score` (0–1), `attempt_count`,
+  `last_attempt_date`. Unique on `(student_profile_id, topic)`; recomputed from eval reports.
+
+---
+
 ## Enumerated types
 
 | Type | Values |
@@ -121,6 +145,8 @@ A report built from an attempt: `attempt_id`, `total_score`, `max_score`, `perce
 | `question_type` (Phase 2) | `mcq`, `true_false`, `short_answer` |
 | `attempt_source_type` (Phase 2) | `quiz`, `paper` |
 | `difficulty` (Phase 2) | `easy`, `medium`, `hard` |
+| `revision_card.state` (Phase 3) | `queued`, `done`, `lapsed` |
+| `session.kind` (Phase 3) | `study`, `quiz`, `paper`, `revision` |
 
 ---
 

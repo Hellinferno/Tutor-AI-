@@ -47,11 +47,13 @@ finance learners. You upload your own study material into a "notebook," and the 
 your questions **using only those sources** (with citations), refuses to answer when it lacks
 support, **solves math/finance/coding problems and verifies the answers**, generates study
 artifacts (summary notes, study guides, planners, revision cards) that can be exported to
-Notion, and **teaches, quizzes, and tests you** with verified answer keys and auto‑graded
-reports. This repository contains the **Phase 0 + Phase 1 + Phase 2 vertical slice**: a working,
-fully‑tested core (44 tests) that runs without any external cloud services.
+Notion, **teaches, quizzes, and tests you** with verified answer keys and auto‑graded reports,
+and **remembers your progress** with spaced‑repetition revision, per‑topic mastery, analytics,
+and voice I/O. This repository contains the **Phase 0 + Phase 1 + Phase 2 + Phase 3 vertical
+slice**: a working, fully‑tested core (64 tests) with an **interactive Next.js web app wired to
+the gateway**, all runnable without any external cloud services.
 
-> 🟢 **Non‑developer note:** "Phase 0 + Phase 1 + Phase 2" just means *the foundation, the first
-> complete feature set, and the teaching/quiz/paper layer*. Later phases (long‑term
-> memory/revision, analytics, voice, mobile) are planned but not built yet. See
-> [11-current-status.md](11-current-status.md).
+> 🟢 **Non‑developer note:** "Phase 0 through Phase 3" means *the foundation, grounded Q&A +
+> verified solving, the teaching/quiz/paper layer, and the memory/revision/analytics/voice layer*.
+> The website is now a working app (not a mockup). Phase 4 (multi‑agent teaching, mobile,
+> scaling) is planned but not built yet. See [11-current-status.md](11-current-status.md).

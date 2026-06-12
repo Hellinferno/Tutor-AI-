@@ -211,3 +211,67 @@ class EvalReport:
     weak_topics: list[str]
     strong_topics: list[str]
     summary: str
+
+
+# ── Phase 3: Memory, Revision, Analytics, Voice ──────────────────────────
+
+@dataclass
+class RevisionCard:
+    id: str
+    user_id: str
+    notebook_id: str
+    topic: str
+    due_date: str
+    interval_days: int
+    state: str = "queued"  # queued, done, lapsed
+    easiness_factor: float = 2.5
+    correct_streak: int = 0
+    source: str = "manual"  # manual, eval_weak_topic
+
+
+@dataclass
+class Session:
+    id: str
+    user_id: str
+    notebook_id: str
+    kind: str = "study"  # study, quiz, paper, revision
+    started_at: str = field(default_factory=utc_now)
+    ended_at: str | None = None
+    interactions: list[dict] = field(default_factory=list)
+
+
+@dataclass
+class StudentProfile:
+    id: str
+    user_id: str
+    notebook_id: str
+    updated_at: str = field(default_factory=utc_now)
+
+
+@dataclass
+class TopicMastery:
+    id: str
+    student_profile_id: str
+    topic: str
+    score: float
+    attempt_count: int
+    last_attempt_date: str | None = None
+
+
+@dataclass
+class KnowledgeState:
+    user_id: str
+    notebook_id: str
+    masteries: list[TopicMastery]
+    overall_score: float
+    weak_topics: list[str]
+    strong_topics: list[str]
+
+
+@dataclass
+class VoiceResult:
+    ok: bool
+    text: str
+    format: str = ""
+    audio_base64: str = ""
+    error: str = ""

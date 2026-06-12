@@ -30,6 +30,8 @@ explainer at the top of each section.
                           │       ├─ ArtifactGenerator                          │
                           │       ├─ TeachingEngine · QuizEngine (Phase 2)      │
                           │       ├─ PaperEngine · EvalEngine   (Phase 2)       │
+                          │       ├─ RepetitionEngine · StudentModel (Phase 3)  │
+                          │       ├─ AnalyticsEngine · VoiceProvider (Phase 3)  │
                           │       ├─ NotionExporter                             │
                           │       └─ Store (InMemory │ SQLite)                  │
                           └──────────────────────────────────────────────────────┘
@@ -51,9 +53,9 @@ explainer at the top of each section.
 
 | Component | Path | Role |
 |---|---|---|
-| **Web app** | [apps/web](../apps/web) | Next.js 15 / React 19 UI (notebook chat, solve, sources, artifacts, teaching, quiz, paper, report panels). |
-| **Gateway service** | [services/gateway](../services/gateway) | HTTP front door exposing the full API (incl. Phase 2 teaching/quiz/paper/report routes). Uses the env‑selected store. |
-| **RAG service** | [services/rag](../services/rag) | Standalone HTTP service for notebook/source/ask/artifact + Phase 2 teaching/quiz/paper/report routes. |
+| **Web app** | [apps/web](../apps/web) | Next.js 15 / React 19 UI — 10 **interactive** panels (sources, ask, teach, solve, quiz, paper, artifacts, report, revision, analytics) wired to the gateway via [lib/api.ts](../apps/web/lib/api.ts) and a shared [NotebookProvider](../apps/web/lib/notebook-context.tsx). |
+| **Gateway service** | [services/gateway](../services/gateway) | HTTP front door exposing the full API (Phase 1–3: ask/solve/artifacts, teaching/quiz/paper/report, revision/student/analytics/voice). Uses the env‑selected store. |
+| **RAG service** | [services/rag](../services/rag) | Standalone HTTP service mirroring the full route table (Phase 1–3) via a clean `Route` list. |
 | **Solver service** | [services/solver](../services/solver) | Standalone HTTP service for solve/reveal routes. |
 | **Core engine** | [packages/studylab_core](../packages/studylab_core) | The dependency‑light brain shared by all services. |
 | **DB migrations** | [packages/db](../packages/db) | Postgres schema (production target). |
@@ -91,6 +93,14 @@ together:
   assembles sectioned question papers (reusing `QuizEngine`) with marks + duration.
 - **EvalEngine** ([eval.py](../packages/studylab_core/studylab_core/eval.py)) *(Phase 2)* — grades
   attempts deterministically and builds reports (percentage, weak/strong topics, summary).
+- **RepetitionEngine** ([revision.py](../packages/studylab_core/studylab_core/revision.py)) *(Phase 3)*
+  — generates revision cards from notebook concepts and reschedules them with an SM‑2 algorithm.
+- **StudentModel** ([student.py](../packages/studylab_core/studylab_core/student.py)) *(Phase 3)* —
+  derives per‑topic mastery from a user's eval reports; surfaces weak/strong topics.
+- **AnalyticsEngine** ([analytics.py](../packages/studylab_core/studylab_core/analytics.py)) *(Phase 3)*
+  — per‑attempt score trends and an overall user summary.
+- **VoiceProvider** ([voice.py](../packages/studylab_core/studylab_core/voice.py)) *(Phase 3)* —
+  STT/TTS behind an interface; `MockVoiceProvider` default, `GeminiVoiceProvider` when `GEMINI_API_KEY` is set.
 - **NotionExporter** ([notion.py](../packages/studylab_core/studylab_core/notion.py)) — real
   Notion API call + a mock mode for local demos.
 - **Store** — [InMemoryStudyLabStore](../packages/studylab_core/studylab_core/store.py) or
@@ -146,13 +156,30 @@ together:
    path with `source_type = "paper"`. Teaching sessions use
    `POST /v1/notebooks/{id}/teaching/start` then `GET /v1/teaching/{id}` + `…/next` / `…/prev`.
 
+### E) "Remember and revise" *(Phase 3)*
+> 🟢 Turn what you've studied into scheduled flashcards, track which topics you've mastered, and
+> chart your progress — all from your own attempt history.
+
+1. `POST /v1/notebooks/{id}/revision/generate-cards` → `RepetitionEngine.generate_cards` makes
+   cards from notebook concepts (or supplied topics). `GET /v1/revision/due` lists what's due;
+   `POST /v1/revision/{card_id}/review` applies SM‑2 (easiness factor, interval, streak) and
+   reschedules.
+2. `POST /v1/student/{user_id}/mastery` → `StudentModel.compute_mastery` reads the user's eval
+   reports to score each topic; `GET …/notebook/{id}/mastery` and `…/weak-topics` read it back.
+3. `GET /v1/analytics/notebook/{id}/trends` and `/analytics/user/{user_id}/summary` →
+   `AnalyticsEngine`. `POST /v1/voice/stt` / `…/tts` → `VoiceProvider` (mock unless `GEMINI_API_KEY`).
+
+> 🟢 **Web flow:** every panel is a client component that calls `lib/api.ts`. A shared
+> `NotebookProvider` holds the active notebook id and the last attempt id, so e.g. submitting a quiz
+> lets the Reports panel load its evaluation.
+
 ---
 
 ## 5. Technology choices
 
 | Layer | Choice | Notes |
 |---|---|---|
-| Web | Next.js 15, React 19, TypeScript | Static‑prerendered build verified. |
+| Web | Next.js 15, React 19, TypeScript | Interactive client panels; `next build` (compile + typecheck + prerender) verified. |
 | Services | Python 3.11+, stdlib `http.server` | Zero‑dependency HTTP via a shared mini‑router ([service_http.py](../packages/studylab_core/studylab_core/service_http.py)). |
 | Persistence (local) | In‑memory or **SQLite** (stdlib) | Selected by `STUDYLAB_SQLITE_PATH`. |
 | Persistence (target) | **Postgres** | Schema in [packages/db/migrations](../packages/db/migrations). |

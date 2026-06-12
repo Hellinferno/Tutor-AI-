@@ -76,6 +76,21 @@ Once you have sources in a notebook, Tutor‑AI can:
 > invented), and every answer key is **checked** before it's trusted — so practice doesn't teach you
 > something wrong.
 
+### 7. It remembers your progress and helps you revise
+As you use it, Tutor‑AI builds a picture of how you're doing:
+- **Spaced‑repetition revision cards** — it turns your topics into flashcards and schedules them so
+  you review each one just before you'd forget it (the well‑known "SM‑2" method).
+- **A student model** — by looking at your quiz/paper results, it works out which topics you've
+  **mastered** and which are **weak**.
+- **Progress analytics** — a simple dashboard of your score trend over attempts and an overall
+  summary.
+- **Voice in and out** — speak a question or have an answer read aloud (uses a real speech provider
+  when configured, a safe stand‑in otherwise).
+
+> 🟢 **The website is a real, working app.** Every panel — sources, ask, teach, solve, quiz, papers,
+> artifacts, reports, revision, analytics — is connected to the live backend. It is no longer a
+> visual mockup.
+
 ---
 
 ## A day‑in‑the‑life example
@@ -91,13 +106,15 @@ Once you have sources in a notebook, Tutor‑AI can:
 
 ## What's built right now (and what isn't)
 
-✅ **Built and working today** (Phase 0 + Phase 1 + Phase 2): notebooks, source upload, source
-guides, grounded answers with citations, honest refusal, verified math/finance/code solving, study
-artifacts, Notion export, durable saving of your data, **plus the teaching whiteboard, quizzes,
-question papers, verified answer keys, and auto‑graded reports.**
+✅ **Built and working today** (Phase 0 + Phase 1 + Phase 2 + Phase 3): notebooks, source upload,
+source guides, grounded answers with citations, honest refusal, verified math/finance/code solving,
+study artifacts, Notion export, durable saving of your data, the teaching whiteboard, quizzes,
+question papers, verified answer keys, auto‑graded reports, **plus spaced‑repetition revision, a
+per‑topic mastery model, progress analytics, and voice input/output** — all driven from a working
+interactive website.
 
-🚧 **Planned for later** (not built yet): long‑term memory and spaced‑repetition revision, progress
-analytics over time, voice input/output, multi‑agent teaching, and a mobile app.
+🚧 **Planned for later** (Phase 4, not built yet): multiple AI "tutor" agents teaching together, a
+native mobile app, and the connectors for websites, YouTube, audio, and Google Docs/Slides.
 
 For the precise, honest breakdown see [11-current-status.md](11-current-status.md).
 

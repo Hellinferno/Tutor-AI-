@@ -23,8 +23,16 @@ machine‑readable spec is [docs/openapi.phase1.yml](../docs/openapi.phase1.yml)
 | **Quizzes** (generate / get / answer‑key / attempt) | ✅ | ✅ | — |
 | **Papers** (generate / get / answer‑key / attempt) | ✅ | ✅ | — |
 | **Reports** (get / generate) | ✅ | ✅ | — |
+| **Revision** (generate-cards / due / stats / review) | ✅ | ✅ | — |
+| **Student** (mastery / weak-topics) | ✅ | ✅ | — |
+| **Analytics** (trends / summary) | ✅ | ✅ | — |
+| **Voice** (stt / tts) | ✅ | ✅ | — |
 
 The **gateway** exposes the full surface in‑process. `rag` and `solver` expose their slices.
+
+> ℹ️ Single-resource GET routes are 3 segments after `/v1` (e.g. `/v1/quizzes/{id}`); nested
+> reads use path params (e.g. `/v1/student/{user_id}/notebook/{notebook_id}/mastery`). The web
+> client ([apps/web/lib/api.ts](../apps/web/lib/api.ts)) and the rag service share these exact shapes.
 
 ---
 
@@ -178,6 +186,51 @@ Build an evaluation report from a graded attempt.
 { "id": "report_…", "attempt_id": "…", "total_score": 2, "max_score": 2, "percentage": 100.0,
   "per_question": [ … ], "weak_topics": [ … ], "strong_topics": [ … ],
   "summary": "Excellent: 2/2 correct (100.0%). …" }
+```
+
+---
+
+## Phase 3 endpoints — revision, student model, analytics, voice
+
+All derived **deterministically** from notebook concepts and the user's own attempt history.
+
+### `POST /v1/notebooks/{id}/revision/generate-cards`
+Make spaced‑repetition cards from notebook concepts (or supplied `topics`).
+```json
+// request:  { "topics": ["gradient descent"] | null, "user_id": "demo-user" }
+// response: { "cards": [ { id, topic, due_date, interval_days, state, easiness_factor, correct_streak } ] }
+```
+
+### `GET /v1/revision/due?user_id=…`  ·  `GET /v1/revision/stats?user_id=…`
+Cards due today → `{ "cards": [ … ] }`. Queue stats → `{ total, due, done, lapsed, avg_easiness }`.
+
+### `POST /v1/revision/{card_id}/review`
+Grade a card and reschedule with SM‑2.
+```json
+// request:  { "card_id": "…", "correct": true }
+// response: the updated card (new due_date, interval_days, easiness_factor, streak, state)
+```
+
+### `POST /v1/student/{user_id}/mastery`
+Recompute a user's topic mastery for a notebook from their eval reports.
+```json
+// request:  { "notebook_id": "…" }
+// response: { user_id, notebook_id, overall_score, masteries: [ { topic, score, attempt_count } ],
+//             weak_topics: [ … ], strong_topics: [ … ] }
+```
+
+### `GET /v1/student/{user_id}/notebook/{notebook_id}/mastery`  ·  `…/weak-topics`
+Read back the stored knowledge state, or just `{ "weak_topics": [ … ] }`.
+
+### `GET /v1/analytics/notebook/{notebook_id}/trends`  ·  `GET /v1/analytics/user/{user_id}/summary`
+Per‑attempt score trend → `{ "trends": [ { attempt_id, score, max_score, weak_topics, strong_topics } ] }`.
+User summary → `{ total_attempts, avg_score, top_weak_topics, top_strong_topics, total_time_minutes }`.
+
+### `POST /v1/voice/stt`  ·  `POST /v1/voice/tts`
+Speech↔text via the env‑gated provider (mock unless `GEMINI_API_KEY` is set).
+```json
+// stt request: { "audio_base64": "…", "format": "wav" }  → { ok, text, format }
+// tts request: { "text": "…", "format": "wav" }           → { ok, audio_base64, format }
 ```
 
 ---

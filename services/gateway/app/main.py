@@ -38,6 +38,25 @@ class StudyLabHandler(BaseHTTPRequestHandler):
         if len(parts) == 3 and parts[:2] == ["v1", "reports"]:
             self._handle(lambda: api.get_report(attempt_id=parts[2]))
             return
+        # ── Phase 3 GET routes (path-param contract, matches rag service + web client) ──
+        if len(parts) == 3 and parts[:2] == ["v1", "revision"] and parts[2] == "due":
+            self._handle(lambda: api.get_due_cards(user_id=self._get_query_param("user_id", "demo-user")))
+            return
+        if len(parts) == 3 and parts[:2] == ["v1", "revision"] and parts[2] == "stats":
+            self._handle(lambda: api.revision_stats(user_id=self._get_query_param("user_id", "demo-user")))
+            return
+        if len(parts) == 6 and parts[:2] == ["v1", "student"] and parts[3] == "notebook" and parts[5] == "mastery":
+            self._handle(lambda: api.get_mastery(user_id=parts[2], notebook_id=parts[4]))
+            return
+        if len(parts) == 6 and parts[:2] == ["v1", "student"] and parts[3] == "notebook" and parts[5] == "weak-topics":
+            self._handle(lambda: api.get_weak_topics(user_id=parts[2], notebook_id=parts[4]))
+            return
+        if len(parts) == 5 and parts[:2] == ["v1", "analytics"] and parts[2] == "notebook" and parts[4] == "trends":
+            self._handle(lambda: api.notebook_trends(notebook_id=parts[3]))
+            return
+        if len(parts) == 5 and parts[:2] == ["v1", "analytics"] and parts[2] == "user" and parts[4] == "summary":
+            self._handle(lambda: api.user_summary(user_id=parts[3]))
+            return
         self._json(404, {"error": {"code": "not_found", "message": f"No route for GET {path}"}})
 
     def do_POST(self) -> None:
@@ -147,6 +166,61 @@ class StudyLabHandler(BaseHTTPRequestHandler):
                     parent_page_id=payload.get("parent_page_id"),
                     data_source_id=payload.get("data_source_id"),
                     mock=payload.get("mock"),
+                )
+            )
+            return
+        # ── Phase 3 POST routes ──
+        if len(parts) == 5 and parts[:2] == ["v1", "notebooks"] and parts[3:] == ["sessions", "start"]:
+            self._handle(
+                lambda: api.create_session(
+                    user_id=payload.get("user_id", "demo-user"),
+                    notebook_id=parts[2],
+                    kind=payload.get("kind", "study"),
+                )
+            )
+            return
+        if len(parts) == 4 and parts[:2] == ["v1", "sessions"] and parts[3] == "end":
+            self._handle(lambda: api.end_session(session_id=parts[2]))
+            return
+        if len(parts) == 5 and parts[:2] == ["v1", "notebooks"] and parts[3:] == ["revision", "generate-cards"]:
+            self._handle(
+                lambda: api.generate_revision_cards(
+                    notebook_id=parts[2],
+                    topics=payload.get("topics"),
+                    user_id=payload.get("user_id", "demo-user"),
+                    source=payload.get("source", "manual"),
+                )
+            )
+            return
+        if len(parts) == 4 and parts[:2] == ["v1", "revision"] and parts[3] == "review":
+            self._handle(
+                lambda: api.review_card(
+                    card_id=parts[2],
+                    correct=payload["correct"],
+                )
+            )
+            return
+        if len(parts) == 4 and parts[:2] == ["v1", "student"] and parts[3] == "mastery":
+            self._handle(
+                lambda: api.compute_mastery(
+                    user_id=parts[2],
+                    notebook_id=payload["notebook_id"],
+                )
+            )
+            return
+        if parts == ["v1", "voice", "stt"]:
+            self._handle(
+                lambda: api.speech_to_text(
+                    audio_base64=payload["audio_base64"],
+                    format=payload.get("format", "wav"),
+                )
+            )
+            return
+        if parts == ["v1", "voice", "tts"]:
+            self._handle(
+                lambda: api.text_to_speech(
+                    text=payload["text"],
+                    format=payload.get("format", "wav"),
                 )
             )
             return

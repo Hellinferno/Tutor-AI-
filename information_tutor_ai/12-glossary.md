@@ -29,7 +29,11 @@ Plain‑English definitions of the terms used across this project and these docs
 | **Allowlist** | The explicit list of things permitted (e.g. safe modules); everything else is denied. |
 | **OCR (Optical Character Recognition)** | Turning an image of text into actual text. |
 | **Artifact** | A generated study document: summary notes, study guide, planner, timetable, or revision cards. |
-| **Revision cards / spaced repetition** | Flashcard‑style prompts reviewed on a widening schedule (Day 1, 3, 7, 15, 30) to aid memory. |
+| **Revision cards / spaced repetition** | Flashcard‑style prompts reviewed on a widening schedule to aid memory. |
+| **SM‑2** | The classic spaced‑repetition algorithm: each correct review grows the interval (and an "easiness factor"); a miss resets it. |
+| **Student model / mastery** | A per‑topic score (0–1) of how well you know each topic, derived from your quiz/paper results; splits topics into weak vs. strong. |
+| **Analytics** | Progress views built from your attempt history: a per‑attempt score trend and an overall summary. |
+| **STT / TTS** | Speech‑to‑Text (transcribe audio) and Text‑to‑Speech (read text aloud); via an env‑gated voice provider (mock by default). |
 | **Notion export** | Sending a generated artifact into the Notion note‑taking app. |
 | **Gateway** | The backend "front door" service that receives requests from the website. |
 | **Service** | A standalone backend program (here: gateway, rag, solver). |
@@ -45,4 +49,4 @@ Plain‑English definitions of the terms used across this project and these docs
 | **CI (Continuous Integration)** | Automated checks that run on every code push (here, CircleCI). |
 | **Eval / benchmark** | A fixed set of test problems used to measure solver quality. |
 | **Env‑gated adapter** | Code whose live behaviour turns on only when an environment variable / external service is configured. |
-| **Phase 0 / Phase 1 / …** | Project stages: foundation, first feature set, and planned later stages. |
+| **Phase 0–3 / Phase 4** | Built stages: foundation (0), grounded RAG + verified solver (1), teaching/quiz/paper (2), memory/revision/analytics/voice (3). Phase 4 (multi‑agent, mobile, more connectors) is planned. |

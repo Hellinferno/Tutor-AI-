@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
-  title: StudyLab Phase 0-2 API
-  version: 0.2.0
+  title: StudyLab Phase 0-3 API
+  version: 0.3.0
 servers:
   - url: /v1
 paths:
@@ -71,3 +71,36 @@ paths:
   /reports/{attempt_id}/generate:
     post:
       summary: Generate an auto-evaluation report
+  /notebooks/{notebook_id}/revision/generate-cards:
+    post:
+      summary: Generate spaced-repetition revision cards from notebook concepts or supplied topics
+  /revision/due:
+    get:
+      summary: List revision cards due today for a user (user_id query param)
+  /revision/stats:
+    get:
+      summary: Revision queue stats (total, due, done, lapsed, avg easiness) for a user
+  /revision/{card_id}/review:
+    post:
+      summary: Grade a revision card (correct boolean) and reschedule it with SM-2
+  /student/{user_id}/mastery:
+    post:
+      summary: Recompute a user's topic mastery for a notebook from their eval reports
+  /student/{user_id}/notebook/{notebook_id}/mastery:
+    get:
+      summary: Fetch a user's stored knowledge state for a notebook
+  /student/{user_id}/notebook/{notebook_id}/weak-topics:
+    get:
+      summary: List a user's weak topics for a notebook
+  /analytics/notebook/{notebook_id}/trends:
+    get:
+      summary: Per-attempt score trend for a notebook
+  /analytics/user/{user_id}/summary:
+    get:
+      summary: A user's overall analytics summary (attempts, avg score, top weak/strong topics, time)
+  /voice/stt:
+    post:
+      summary: Speech-to-text (env-gated provider; mock by default)
+  /voice/tts:
+    post:
+      summary: Text-to-speech (env-gated provider; mock by default)

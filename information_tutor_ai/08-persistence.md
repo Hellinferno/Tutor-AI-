@@ -52,8 +52,10 @@ python -m services.gateway.app.main
 
 [store_sqlite.py](../packages/studylab_core/studylab_core/store_sqlite.py):
 
-- Creates the tables on first connect (notebooks, sources, source_chunks, source_guides,
-  solutions, artifacts) with the same shape as the Postgres migration.
+- Creates the tables on first connect — Phase 1 (notebooks, sources, source_chunks, source_guides,
+  solutions, artifacts), Phase 2 (whiteboard_sessions, quizzes, question_papers, attempts,
+  answer_keys, eval_reports), and Phase 3 (revision_cards, sessions, student_profiles,
+  topic_masteries) — with the same shape as the Postgres migrations.
 - Uses **WAL mode** and a re‑entrant lock with `check_same_thread=False` so it's safe under the
   threaded HTTP servers.
 - Stores JSON fields (citations, steps, key_concepts) as TEXT; rebuilds dataclasses on read.
@@ -74,10 +76,12 @@ See `tests/test_phase1_infra.py::SqlitePersistenceTests`.
 
 ## The Postgres target
 
-[001_phase1_foundation.sql](../packages/db/migrations/001_phase1_foundation.sql) defines the full
-production schema (uuid keys, `jsonb`, native enums, indexes, plus `users`, `sessions`,
-`revision_cards` for later phases). The SQLite store mirrors this contract so moving to Postgres
-is a store swap, not an engine rewrite.
+The migrations define the full production schema (uuid keys, `jsonb`, native enums, indexes):
+[001_phase1_foundation.sql](../packages/db/migrations/001_phase1_foundation.sql) (Phase 1 + the
+`users`/`sessions`/`revision_cards` stubs), [002_phase2_teaching_quiz.sql](../packages/db/migrations/002_phase2_teaching_quiz.sql)
+(teaching, quizzes, papers, eval), and [003_phase3_revision_voice.sql](../packages/db/migrations/003_phase3_revision_voice.sql)
+(SM‑2 columns, student_profiles, topic_masteries). The SQLite store mirrors this contract so moving
+to Postgres is a store swap, not an engine rewrite.
 
 **Status:** Postgres + Redis are provisioned in `docker-compose.yml`; wiring the app to Postgres
 as the live store is an env‑gated next step (see [11-current-status.md](11-current-status.md)).

@@ -28,7 +28,7 @@ From the repository root (`tutor AI/`):
 # Make the core importable (PowerShell)
 $env:PYTHONPATH = "packages/studylab_core"
 
-# Run the full test suite (24 tests)
+# Run the full test suite (64 tests)
 python -m unittest discover tests
 
 # Run the solver quality gate (must report false_verified_rate=0)
@@ -64,9 +64,23 @@ curl -X POST http://localhost:8000/v1/solve -H "Content-Type: application/json" 
 cd apps/web
 npm install
 npm run build      # production build (compiles, type-checks, prerenders)
-npm run dev        # local dev server
+npm run typecheck  # tsc --noEmit
+npm run dev        # local dev server (http://localhost:3000)
 ```
 `node_modules/` and `.next/` are git‑ignored.
+
+### Use the full interactive app
+The panels are live client components that call the gateway. Run **both** processes:
+```powershell
+# Terminal 1 — backend
+python -m services.gateway.app.main          # http://localhost:8000
+
+# Terminal 2 — frontend
+cd apps/web; npm run dev                      # http://localhost:3000
+```
+Then open the dev server, create a notebook in the header, upload a source, and every panel
+(ask, teach, solve, quiz, paper, artifacts, report, revision, analytics) works end‑to‑end. The
+web app reads the gateway URL from `NEXT_PUBLIC_API_BASE` (default `http://localhost:8000/v1`).
 
 ---
 
@@ -89,9 +103,11 @@ All documented in [.env.example](../.env.example). The ones that change behaviou
 |---|---|
 | `STUDYLAB_SQLITE_PATH` | Set → durable SQLite; unset → in‑memory. |
 | `PORT` / `RAG_PORT` / `SOLVER_PORT` | Service ports (8000 / 8001 / 8002). |
+| `NEXT_PUBLIC_API_BASE` | Gateway base URL the web app calls (default `http://localhost:8000/v1`). |
 | `STUDYLAB_PROMPTS_DIR` | Override where prompt templates are loaded from. |
 | `NOTION_MOCK_EXPORT` | `true` → mock Notion export for demos. |
 | `NOTION_API_KEY` | Set → real Notion export. |
+| `GEMINI_API_KEY` | Set → real voice (STT/TTS) provider; unset → mock. |
 
 Variables present for the **production target** but not yet the live path: `DATABASE_URL`
 (Postgres), `QDRANT_URL`/`QDRANT_COLLECTION`, `REDIS_URL`, `EMBEDDINGS_ENDPOINT`. See

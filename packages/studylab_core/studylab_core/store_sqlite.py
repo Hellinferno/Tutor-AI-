@@ -18,10 +18,15 @@ from .models import (
     QuestionPaper,
     Quiz,
     QuizQuestion,
+    RevisionCard,
+    Session,
     Solution,
     Source,
     SourceChunk,
     SourceGuide,
+    StudentProfile,
+    TopicMastery,
+    VoiceResult,
     WhiteboardSession,
 )
 
@@ -129,8 +134,46 @@ CREATE TABLE IF NOT EXISTS eval_reports (
   strong_topics TEXT NOT NULL,
   summary TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS sessions (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  notebook_id TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  started_at TEXT NOT NULL,
+  ended_at TEXT,
+  interactions TEXT NOT NULL DEFAULT '[]'
+);
+CREATE TABLE IF NOT EXISTS revision_cards (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  notebook_id TEXT NOT NULL,
+  topic TEXT NOT NULL,
+  due_date TEXT NOT NULL,
+  interval_days INTEGER NOT NULL,
+  state TEXT NOT NULL DEFAULT 'queued',
+  easiness_factor REAL NOT NULL DEFAULT 2.5,
+  correct_streak INTEGER NOT NULL DEFAULT 0,
+  source TEXT NOT NULL DEFAULT 'manual'
+);
+CREATE TABLE IF NOT EXISTS student_profiles (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  notebook_id TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS topic_masteries (
+  id TEXT PRIMARY KEY,
+  student_profile_id TEXT NOT NULL,
+  topic TEXT NOT NULL,
+  score REAL NOT NULL,
+  attempt_count INTEGER NOT NULL DEFAULT 0,
+  last_attempt_date TEXT
+);
 CREATE INDEX IF NOT EXISTS idx_chunks_notebook ON source_chunks (notebook_id);
 CREATE INDEX IF NOT EXISTS idx_solutions_hash ON solutions (question_hash, created_at);
+CREATE INDEX IF NOT EXISTS idx_revision_due ON revision_cards (user_id, due_date);
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions (user_id, notebook_id);
+CREATE INDEX IF NOT EXISTS idx_masteries_profile ON topic_masteries (student_profile_id);
 """
 
 
@@ -215,6 +258,12 @@ class SqliteStudyLabStore:
         self.answer_keys = _TableView(self._all_answer_keys, self._get_answer_key)
         self.eval_reports = _TableView(self._all_eval_reports, self._get_eval_report)
 
+        # Phase 3 table views
+        self.revision_cards = _TableView(self._all_revision_cards, self._get_revision_card)
+        self.sessions = _TableView(self._all_sessions, self._get_session)
+        self.student_profiles = _TableView(self._all_student_profiles, self._get_student_profile)
+        self.topic_masteries = _TableView(self._all_topic_masteries, self._get_topic_mastery)
+
     def _ensure_compat_columns(self) -> None:
         columns = {row["name"] for row in self._conn.execute("PRAGMA table_info(answer_keys)").fetchall()}
         if "verified" not in columns:
@@ -223,6 +272,14 @@ class SqliteStudyLabStore:
             self._conn.execute(
                 "ALTER TABLE answer_keys ADD COLUMN verification_method TEXT NOT NULL DEFAULT 'deterministic_source_check'"
             )
+        rev_cols = {row["name"] for row in self._conn.execute("PRAGMA table_info(revision_cards)").fetchall()}
+        if "easiness_factor" not in rev_cols:
+            self._conn.execute("ALTER TABLE revision_cards ADD COLUMN easiness_factor REAL NOT NULL DEFAULT 2.5")
+            self._conn.execute("ALTER TABLE revision_cards ADD COLUMN correct_streak INTEGER NOT NULL DEFAULT 0")
+            self._conn.execute("ALTER TABLE revision_cards ADD COLUMN source TEXT NOT NULL DEFAULT 'manual'")
+        sess_cols = {row["name"] for row in self._conn.execute("PRAGMA table_info(sessions)").fetchall()}
+        if "kind" not in sess_cols:
+            self._conn.execute("ALTER TABLE sessions ADD COLUMN kind TEXT NOT NULL DEFAULT 'study'")
 
     # -- identity & serialization -------------------------------------------------
 
@@ -479,7 +536,139 @@ class SqliteStudyLabStore:
             self._conn.commit()
         return report
 
+    # ── Phase 3 writes ─────────────────────────────────────────────────────
+
+    def add_revision_card(self, card: RevisionCard) -> RevisionCard:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO revision_cards (id, user_id, notebook_id, topic, due_date, interval_days, state, easiness_factor, correct_streak, source) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (card.id, card.user_id, card.notebook_id, card.topic, card.due_date,
+                 card.interval_days, card.state, card.easiness_factor, card.correct_streak, card.source),
+            )
+            self._conn.commit()
+        return card
+
+    def save_revision_card(self, card: RevisionCard) -> RevisionCard:
+        with self._lock:
+            self._conn.execute(
+                "UPDATE revision_cards SET due_date=?, interval_days=?, state=?, easiness_factor=?, correct_streak=? WHERE id=?",
+                (card.due_date, card.interval_days, card.state, card.easiness_factor, card.correct_streak, card.id),
+            )
+            self._conn.commit()
+        return card
+
+    def due_revision_cards(self, user_id: str, today: str) -> list[RevisionCard]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM revision_cards WHERE user_id=? AND due_date<=?",
+                (user_id, today),
+            ).fetchall()
+        return [self._row_to_revision_card(row) for row in rows]
+
+    def notebook_revision_cards(self, notebook_id: str) -> list[RevisionCard]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM revision_cards WHERE notebook_id=?",
+                (notebook_id,),
+            ).fetchall()
+        return [self._row_to_revision_card(row) for row in rows]
+
+    def add_session(self, session: Session) -> Session:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO sessions (id, user_id, notebook_id, kind, started_at, ended_at, interactions) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (session.id, session.user_id, session.notebook_id, session.kind,
+                 session.started_at, session.ended_at, json.dumps(session.interactions)),
+            )
+            self._conn.commit()
+        return session
+
+    def save_session(self, session: Session) -> Session:
+        with self._lock:
+            self._conn.execute(
+                "UPDATE sessions SET ended_at=?, interactions=? WHERE id=?",
+                (session.ended_at, json.dumps(session.interactions), session.id),
+            )
+            self._conn.commit()
+        return session
+
+    def user_sessions(self, user_id: str, notebook_id: str | None = None) -> list[Session]:
+        with self._lock:
+            if notebook_id:
+                rows = self._conn.execute(
+                    "SELECT * FROM sessions WHERE user_id=? AND notebook_id=? ORDER BY started_at DESC",
+                    (user_id, notebook_id),
+                ).fetchall()
+            else:
+                rows = self._conn.execute(
+                    "SELECT * FROM sessions WHERE user_id=? ORDER BY started_at DESC",
+                    (user_id,),
+                ).fetchall()
+        return [self._row_to_session(row) for row in rows]
+
+    def add_student_profile(self, profile: StudentProfile) -> StudentProfile:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO student_profiles (id, user_id, notebook_id, updated_at) VALUES (?, ?, ?, ?) "
+                "ON CONFLICT(id) DO UPDATE SET updated_at=excluded.updated_at",
+                (profile.id, profile.user_id, profile.notebook_id, profile.updated_at),
+            )
+            self._conn.commit()
+        return profile
+
+    def require_student_profile(self, profile_id: str) -> StudentProfile:
+        profile = self._get_student_profile(profile_id)
+        if profile is None:
+            raise KeyError(f"Student profile not found: {profile_id}")
+        return profile
+
+    def student_profile_for(self, user_id: str, notebook_id: str) -> StudentProfile | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT * FROM student_profiles WHERE user_id=? AND notebook_id=? LIMIT 1",
+                (user_id, notebook_id),
+            ).fetchone()
+        return self._row_to_student_profile(row) if row else None
+
+    def add_topic_mastery(self, mastery: TopicMastery) -> TopicMastery:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO topic_masteries (id, student_profile_id, topic, score, attempt_count, last_attempt_date) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (mastery.id, mastery.student_profile_id, mastery.topic, mastery.score,
+                 mastery.attempt_count, mastery.last_attempt_date),
+            )
+            self._conn.commit()
+        return mastery
+
+    def topic_masteries_for(self, profile_id: str) -> list[TopicMastery]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM topic_masteries WHERE student_profile_id=?",
+                (profile_id,),
+            ).fetchall()
+        return [self._row_to_topic_mastery(row) for row in rows]
+
+    def clear_topic_masteries(self, profile_id: str) -> None:
+        with self._lock:
+            self._conn.execute("DELETE FROM topic_masteries WHERE student_profile_id=?", (profile_id,))
+            self._conn.commit()
+
     # -- Phase 2 reads -----------------------------------------------------------
+
+    def require_session(self, session_id: str) -> Session:
+        session = self._get_session(session_id)
+        if session is None:
+            raise KeyError(f"Session not found: {session_id}")
+        return session
+
+    def require_revision_card(self, card_id: str) -> RevisionCard:
+        card = self._get_revision_card(card_id)
+        if card is None:
+            raise KeyError(f"Revision card not found: {card_id}")
+        return card
 
     def require_whiteboard_session(self, session_id: str) -> WhiteboardSession:
         session = self._get_whiteboard_session(session_id)
@@ -823,6 +1012,93 @@ class SqliteStudyLabStore:
         with self._lock:
             rows = self._conn.execute("SELECT * FROM eval_reports").fetchall()
         return {row["id"]: self._row_to_eval_report(row) for row in rows}
+
+    # ── Phase 3 row mappers ───────────────────────────────────────────────
+
+    def _row_to_revision_card(self, row: sqlite3.Row) -> RevisionCard:
+        return RevisionCard(
+            id=row["id"],
+            user_id=row["user_id"],
+            notebook_id=row["notebook_id"],
+            topic=row["topic"],
+            due_date=row["due_date"],
+            interval_days=row["interval_days"],
+            state=row["state"],
+            easiness_factor=row["easiness_factor"],
+            correct_streak=row["correct_streak"],
+            source=row["source"],
+        )
+
+    def _row_to_session(self, row: sqlite3.Row) -> Session:
+        return Session(
+            id=row["id"],
+            user_id=row["user_id"],
+            notebook_id=row["notebook_id"],
+            kind=row["kind"],
+            started_at=row["started_at"],
+            ended_at=row["ended_at"],
+            interactions=json.loads(row["interactions"]),
+        )
+
+    def _row_to_student_profile(self, row: sqlite3.Row) -> StudentProfile:
+        return StudentProfile(
+            id=row["id"],
+            user_id=row["user_id"],
+            notebook_id=row["notebook_id"],
+            updated_at=row["updated_at"],
+        )
+
+    def _row_to_topic_mastery(self, row: sqlite3.Row) -> TopicMastery:
+        return TopicMastery(
+            id=row["id"],
+            student_profile_id=row["student_profile_id"],
+            topic=row["topic"],
+            score=row["score"],
+            attempt_count=row["attempt_count"],
+            last_attempt_date=row["last_attempt_date"],
+        )
+
+    # ── Phase 3 loaders ───────────────────────────────────────────────────
+
+    def _get_revision_card(self, key: str) -> RevisionCard | None:
+        with self._lock:
+            row = self._conn.execute("SELECT * FROM revision_cards WHERE id=?", (key,)).fetchone()
+        return self._row_to_revision_card(row) if row else None
+
+    def _all_revision_cards(self) -> dict[str, RevisionCard]:
+        with self._lock:
+            rows = self._conn.execute("SELECT * FROM revision_cards").fetchall()
+        return {row["id"]: self._row_to_revision_card(row) for row in rows}
+
+    def _get_session(self, key: str) -> Session | None:
+        with self._lock:
+            row = self._conn.execute("SELECT * FROM sessions WHERE id=?", (key,)).fetchone()
+        return self._row_to_session(row) if row else None
+
+    def _all_sessions(self) -> dict[str, Session]:
+        with self._lock:
+            rows = self._conn.execute("SELECT * FROM sessions").fetchall()
+        return {row["id"]: self._row_to_session(row) for row in rows}
+
+    def _get_student_profile(self, key: str) -> StudentProfile | None:
+        with self._lock:
+            row = self._conn.execute("SELECT * FROM student_profiles WHERE id=?", (key,)).fetchone()
+        return self._row_to_student_profile(row) if row else None
+
+    def _all_student_profiles(self) -> dict[str, StudentProfile]:
+        with self._lock:
+            rows = self._conn.execute("SELECT * FROM student_profiles").fetchall()
+        return {row["id"]: self._row_to_student_profile(row) for row in rows}
+
+    def _get_topic_mastery(self, key: str) -> TopicMastery | None:
+        with self._lock:
+            row = self._conn.execute("SELECT * FROM topic_masteries WHERE id=?", (key,)).fetchone()
+        return self._row_to_topic_mastery(row) if row else None
+
+    def _all_topic_masteries(self) -> dict[str, TopicMastery]:
+        with self._lock:
+            rows = self._conn.execute("SELECT * FROM topic_masteries").fetchall()
+        return {row["id"]: self._row_to_topic_mastery(row) for row in rows}
 
     def close(self) -> None:
         with self._lock:

@@ -1,6 +1,6 @@
 # 10 — Testing & Evaluation 🔵
 
-The project's quality gate: what runs, what it proves, and the Phase 1 acceptance criteria.
+The project's quality gate: what runs, what it proves, and the Phase 1–3 acceptance criteria.
 
 > 🟢 **Plain English:** before code is considered "done," it must pass automatic checks. There are
 > two: a **test suite** (does each feature behave correctly?) and an **eval gate** (does the solver
@@ -12,16 +12,16 @@ The project's quality gate: what runs, what it proves, and the Phase 1 acceptanc
 
 | Command | What it checks | Current result |
 |---|---|---|
-| `python -m unittest discover tests` | 44 unit/integration tests | ✅ 44 passed |
+| `python -m unittest discover tests` | 64 unit/integration tests | ✅ 64 passed |
 | `python packages/eval/run_eval.py` | solver verification gate | ✅ 15 cases, `false_verified_rate=0` |
-| `cd apps/web && npm run build` | web compiles + type‑checks + prerenders | ✅ green |
+| `cd apps/web && npm run build` | web compiles + type‑checks + prerenders | ✅ green (interactive app) |
 
 CI runs the first two (job `python-test`) and a web manifest check (job `web-static`) on every
 push — see [.circleci/config.yml](../.circleci/config.yml).
 
 ---
 
-## The test suite (44 tests)
+## The test suite (64 tests)
 
 ### `tests/test_phase1_core.py` — 12 tests
 - **Chunking**: offsets are stable (a chunk's `[start:end]` slice reproduces its text).
@@ -56,8 +56,19 @@ push — see [.circleci/config.yml](../.circleci/config.yml).
 - **Edge cases**: quiz/paper generation on an empty notebook (no sources, no topic) raises
   `ValueError`; teaching on an empty notebook does not.
 
-> The gateway HTTP routing for all Phase 2 endpoints (start→get→next/prev, generate→get→answer‑key
-> →attempt→report) is additionally smoke‑tested end‑to‑end against a live `ThreadingHTTPServer`.
+### `tests/test_phase3_core.py` — 20 tests
+- **Revision (SM‑2)**: cards generate from notebook concepts; a correct review grows the interval
+  and easiness factor; a lapse resets them and re‑queues the card; `due`/`stats` reflect state.
+- **Student model**: mastery is computed from eval reports; weak/strong topics split at the
+  thresholds; re‑computing replaces (not duplicates) topic rows.
+- **Analytics**: per‑attempt trends are returned in order; the user summary aggregates attempts,
+  average score, and top weak/strong topics.
+- **Voice**: the mock provider round‑trips STT/TTS (`ok`, `text`/`audio_base64`); bad input returns
+  `ok: false` with an error.
+
+> The gateway HTTP routing for **all Phase 2 and Phase 3 endpoints** is additionally smoke‑tested
+> end‑to‑end against a live `ThreadingHTTPServer` (15 UI flows, every route returns 200), and the
+> web app passes `tsc --noEmit` + `next build`.
 
 ---
 
@@ -84,7 +95,7 @@ From [Instructions/10-development-phases.md](../Instructions/10-development-phas
 
 | Gate criterion | Status |
 |---|---|
-| Tests pass | ✅ 44/44 |
+| Tests pass | ✅ 64/64 |
 | `false_verified_rate=0` | ✅ |
 | Cited answers include source metadata | ✅ (`source_title`, `chunk_index`, offsets, snippet, score) |
 | Weak retrieval refuses grounding | ✅ (`insufficient_source_support`) |
@@ -111,3 +122,23 @@ and auto‑eval/reports.*
 
 ➡️ **The Phase 2 gate passes.** As with Phase 1, content is derived deterministically from sources
 to keep it offline‑runnable and free of unverified claims.
+
+---
+
+## Phase 3 acceptance gate (from the spec)
+
+From [Instructions/10-development-phases.md](../Instructions/10-development-phases.md), Phase 3 is
+*student model, spaced‑repetition schedule, progress analytics, voice I/O, weak‑topic revision cards.*
+
+| Gate criterion | Status |
+|---|---|
+| Student model | ✅ (`StudentModel`: per‑topic mastery from eval reports) |
+| Spaced‑repetition schedule | ✅ (`RepetitionEngine`: SM‑2 cards, due queue, review) |
+| Progress analytics | ✅ (`AnalyticsEngine`: trends + user summary) |
+| Voice input/output | ✅ (`VoiceProvider`: mock default, Gemini when `GEMINI_API_KEY` set) |
+| Weak‑topic revision cards | ✅ (mastery weak topics + card `source=eval_weak_topic`) |
+| Tests pass | ✅ 20 Phase 3 tests + gateway HTTP smoke test |
+
+➡️ **The Phase 3 gate passes**, and the web app is wired to all of it (no static mockups). Live
+Postgres/Qdrant/Redis and the real voice provider remain env‑gated adapters per
+[11-current-status.md](11-current-status.md).

@@ -13,10 +13,14 @@ from .models import (
     QuestionPaper,
     Quiz,
     QuizQuestion,
+    RevisionCard,
+    Session,
     Solution,
     Source,
     SourceChunk,
     SourceGuide,
+    StudentProfile,
+    TopicMastery,
     WhiteboardSession,
 )
 
@@ -41,6 +45,12 @@ class InMemoryStudyLabStore:
         self.attempts: dict[str, Attempt] = {}
         self.answer_keys: dict[str, AnswerKey] = {}
         self.eval_reports: dict[str, EvalReport] = {}
+
+        # Phase 3 stores
+        self.revision_cards: dict[str, RevisionCard] = {}
+        self.sessions: dict[str, Session] = {}
+        self.student_profiles: dict[str, StudentProfile] = {}
+        self.topic_masteries: dict[str, TopicMastery] = {}
 
     def next_id(self, prefix: str) -> str:
         return f"{prefix}_{uuid4().hex[:12]}"
@@ -197,6 +207,79 @@ class InMemoryStudyLabStore:
             return self.eval_reports[report_id]
         except KeyError as exc:
             raise KeyError(f"Eval report not found: {report_id}") from exc
+
+    # ── Phase 3: Revision Cards ──────────────────────────────────────────
+
+    def add_revision_card(self, card: RevisionCard) -> RevisionCard:
+        self.revision_cards[card.id] = card
+        return card
+
+    def require_revision_card(self, card_id: str) -> RevisionCard:
+        try:
+            return self.revision_cards[card_id]
+        except KeyError as exc:
+            raise KeyError(f"Revision card not found: {card_id}") from exc
+
+    def save_revision_card(self, card: RevisionCard) -> RevisionCard:
+        self.revision_cards[card.id] = card
+        return card
+
+    def due_revision_cards(self, user_id: str, today: str) -> list[RevisionCard]:
+        return [
+            card for card in self.revision_cards.values()
+            if card.user_id == user_id and card.due_date <= today
+        ]
+
+    def notebook_revision_cards(self, notebook_id: str) -> list[RevisionCard]:
+        return [card for card in self.revision_cards.values() if card.notebook_id == notebook_id]
+
+    # ── Phase 3: Sessions ────────────────────────────────────────────────
+
+    def add_session(self, session: Session) -> Session:
+        self.sessions[session.id] = session
+        return session
+
+    def require_session(self, session_id: str) -> Session:
+        try:
+            return self.sessions[session_id]
+        except KeyError as exc:
+            raise KeyError(f"Session not found: {session_id}") from exc
+
+    def user_sessions(self, user_id: str, notebook_id: str | None = None) -> list[Session]:
+        matching = [s for s in self.sessions.values() if s.user_id == user_id]
+        if notebook_id:
+            matching = [s for s in matching if s.notebook_id == notebook_id]
+        return sorted(matching, key=lambda s: s.started_at, reverse=True)
+
+    # ── Phase 3: Student Profile & Mastery ───────────────────────────────
+
+    def add_student_profile(self, profile: StudentProfile) -> StudentProfile:
+        self.student_profiles[profile.id] = profile
+        return profile
+
+    def require_student_profile(self, profile_id: str) -> StudentProfile:
+        try:
+            return self.student_profiles[profile_id]
+        except KeyError as exc:
+            raise KeyError(f"Student profile not found: {profile_id}") from exc
+
+    def student_profile_for(self, user_id: str, notebook_id: str) -> StudentProfile | None:
+        for p in self.student_profiles.values():
+            if p.user_id == user_id and p.notebook_id == notebook_id:
+                return p
+        return None
+
+    def add_topic_mastery(self, mastery: TopicMastery) -> TopicMastery:
+        self.topic_masteries[mastery.id] = mastery
+        return mastery
+
+    def topic_masteries_for(self, profile_id: str) -> list[TopicMastery]:
+        return [m for m in self.topic_masteries.values() if m.student_profile_id == profile_id]
+
+    def clear_topic_masteries(self, profile_id: str) -> None:
+        ids = [m.id for m in self.topic_masteries.values() if m.student_profile_id == profile_id]
+        for mid in ids:
+            del self.topic_masteries[mid]
 
     def to_plain(self, value: Any) -> Any:
         if is_dataclass(value):

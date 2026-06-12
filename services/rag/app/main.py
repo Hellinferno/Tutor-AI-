@@ -69,6 +69,27 @@ ROUTES = [
     ),
     # Phase 2: Reports
     Route("GET", "/v1/reports/{attempt_id}", lambda p, b: api.get_report(attempt_id=p["attempt_id"])),
+    # Phase 3: Sessions
+    Route("POST", "/v1/notebooks/{notebook_id}/sessions/start", lambda p, b: api.create_session(user_id=b.get("user_id", "demo-user"), notebook_id=p["notebook_id"], kind=b.get("kind", "study"))),
+    Route("POST", "/v1/sessions/{session_id}/end", lambda p, b: api.end_session(session_id=p["session_id"])),
+    # Phase 3: Revision
+    Route(
+        "POST", "/v1/notebooks/{notebook_id}/revision/generate-cards",
+        lambda p, b: api.generate_revision_cards(notebook_id=p["notebook_id"], topics=b.get("topics"), user_id=b.get("user_id", "demo-user"), source=b.get("source", "manual")),
+    ),
+    Route("GET", "/v1/revision/due", lambda p, b: api.get_due_cards(user_id="demo-user")),
+    Route("GET", "/v1/revision/stats", lambda p, b: api.revision_stats(user_id="demo-user")),
+    Route("POST", "/v1/revision/{card_id}/review", lambda p, b: api.review_card(card_id=p["card_id"], correct=b.get("correct", True))),
+    # Phase 3: Student
+    Route("POST", "/v1/student/{user_id}/mastery", lambda p, b: api.compute_mastery(user_id=p["user_id"], notebook_id=b["notebook_id"])),
+    Route("GET", "/v1/student/{user_id}/notebook/{notebook_id}/mastery", lambda p, b: api.get_mastery(user_id=p["user_id"], notebook_id=p["notebook_id"])),
+    Route("GET", "/v1/student/{user_id}/notebook/{notebook_id}/weak-topics", lambda p, b: api.get_weak_topics(user_id=p["user_id"], notebook_id=p["notebook_id"])),
+    # Phase 3: Analytics
+    Route("GET", "/v1/analytics/notebook/{notebook_id}/trends", lambda p, b: api.notebook_trends(notebook_id=p["notebook_id"])),
+    Route("GET", "/v1/analytics/user/{user_id}/summary", lambda p, b: api.user_summary(user_id=p["user_id"])),
+    # Phase 3: Voice
+    Route("POST", "/v1/voice/stt", lambda p, b: api.speech_to_text(audio_base64=b["audio_base64"], format=b.get("format", "wav"))),
+    Route("POST", "/v1/voice/tts", lambda p, b: api.text_to_speech(text=b["text"], format=b.get("format", "wav"))),
 ]
 
 
