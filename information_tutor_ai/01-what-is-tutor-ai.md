@@ -91,6 +91,36 @@ As you use it, Tutor‑AI builds a picture of how you're doing:
 > artifacts, reports, revision, analytics — is connected to the live backend. It is no longer a
 > visual mockup.
 
+### 8. It pulls in more kinds of sources, teaches with a team of agents, and has real plans
+The latest layer (Phase 4) adds:
+- **More source connectors** — bring in a **website**, a **YouTube** video, an **audio** recording,
+  or a **Google Doc / Slides**. The text/transcript is imported, then chunked and cited exactly like
+  an upload (so answers stay grounded and checkable).
+- **Multi‑agent teaching** — instead of one explanation, a small *team* walks you through each
+  concept: an **explainer** teaches it, a **grounding‑verifier** checks how well it's backed by your
+  sources, and a **practice‑coach** gives you the next move. Every turn is still cited.
+- **Plans & usage** — Free, Scholar, and Pro plans with clear monthly usage allowances, a live
+  meter of what you've used, and one‑click plan switching. (Real card payments turn on when a
+  payment key is configured; until then it runs in a safe mock mode.)
+
+> 🟢 **Mobile:** the website is fully **responsive** — it reshapes to fit a phone screen — so you can
+> study on the go. (A separate native mobile app is still future work.)
+
+### 9. It has real accounts and shows its own health
+The production‑readiness layer (Phase 5) adds:
+- **Accounts** — sign up and sign in with an email and password (passwords are stored only as a
+  salted, one‑way "hash", never as plain text). Your notebooks, usage, and plan belong to **your**
+  account.
+- **Private by default** — when the server is run in its secure mode, every request must carry your
+  login token, and you can only open your own notebooks.
+- **Real usage limits** — in secure mode, going over your plan's monthly allowance is actually
+  blocked (with a clear "upgrade your plan" message) rather than just counted.
+- **A health dashboard** — a simple panel shows how the system is doing: how often it correctly
+  refused to answer, how often answers were verified, how fast solving is, and the cache hit rate.
+
+> 🟢 **Safe to try:** these protections ship **switched off by default** so anyone can run the app
+> with no setup; flipping one environment switch turns on real login enforcement and usage limits.
+
 ---
 
 ## A day‑in‑the‑life example
@@ -106,15 +136,19 @@ As you use it, Tutor‑AI builds a picture of how you're doing:
 
 ## What's built right now (and what isn't)
 
-✅ **Built and working today** (Phase 0 + Phase 1 + Phase 2 + Phase 3): notebooks, source upload,
-source guides, grounded answers with citations, honest refusal, verified math/finance/code solving,
-study artifacts, Notion export, durable saving of your data, the teaching whiteboard, quizzes,
-question papers, verified answer keys, auto‑graded reports, **plus spaced‑repetition revision, a
-per‑topic mastery model, progress analytics, and voice input/output** — all driven from a working
+✅ **Built and working today** (Phase 0 → Phase 5): notebooks, source upload, source guides, grounded
+answers with citations, honest refusal, verified math/finance/code solving, study artifacts, Notion
+export, durable saving of your data, the teaching whiteboard, quizzes, question papers, verified
+answer keys, auto‑graded reports, spaced‑repetition revision, a per‑topic mastery model, progress
+analytics, voice input/output, the website / YouTube / audio / Google Docs connectors, multi‑agent
+teaching, Free/Scholar/Pro plans with usage metering, **plus real accounts (login), per‑user privacy,
+enforceable usage limits, and a system‑health dashboard** — all driven from a working, responsive
 interactive website.
 
-🚧 **Planned for later** (Phase 4, not built yet): multiple AI "tutor" agents teaching together, a
-native mobile app, and the connectors for websites, YouTube, audio, and Google Docs/Slides.
+🚧 **Planned for later**: a **native mobile app** (the website is already responsive),
+**horizontal‑scaling** infrastructure, and **social login (OAuth/SSO) + password reset**. Real
+external services — Postgres, Qdrant, embeddings, OCR, the voice provider, connector fetch‑workers,
+and Stripe billing — are wired as env‑gated adapters you can switch on with a key.
 
 For the precise, honest breakdown see [11-current-status.md](11-current-status.md).
 

@@ -54,8 +54,10 @@ python -m services.gateway.app.main
 
 - Creates the tables on first connect — Phase 1 (notebooks, sources, source_chunks, source_guides,
   solutions, artifacts), Phase 2 (whiteboard_sessions, quizzes, question_papers, attempts,
-  answer_keys, eval_reports), and Phase 3 (revision_cards, sessions, student_profiles,
-  topic_masteries) — with the same shape as the Postgres migrations.
+  answer_keys, eval_reports), Phase 3 (revision_cards, sessions, student_profiles,
+  topic_masteries), Phase 4 (source_imports, multi_agent_teaching_sessions, subscriptions,
+  usage_records), and Phase 5 (users — with `password_hash`) — with the same shape as the Postgres
+  migrations.
 - Uses **WAL mode** and a re‑entrant lock with `check_same_thread=False` so it's safe under the
   threaded HTTP servers.
 - Stores JSON fields (citations, steps, key_concepts) as TEXT; rebuilds dataclasses on read.

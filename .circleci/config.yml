@@ -34,3 +34,11 @@ workflows:
     jobs:
       - python-test
       - web-static
+  phase4:
+    jobs:
+      - python-test
+      - web-static
+  phase5:
+    jobs:
+      - python-test
+      - web-static

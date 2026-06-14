@@ -6,10 +6,18 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import urlparse
 
-from studylab_core import StudyLabAPI, make_store_from_env
+from studylab_core import AuthError, QuotaExceededError, StudyLabAPI, make_store_from_env
 
 
 api = StudyLabAPI(make_store_from_env())
+
+
+def _truthy(value: str | None) -> bool:
+    return (value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+# Paths reachable without a bearer token even when auth enforcement is on.
+PUBLIC_PATHS = {"/health", "/metrics", "/v1/auth/register", "/v1/auth/login"}
 
 
 class StudyLabHandler(BaseHTTPRequestHandler):
@@ -20,7 +28,15 @@ class StudyLabHandler(BaseHTTPRequestHandler):
         if path == "/health":
             self._json(200, {"status": "ok"})
             return
+        if path == "/metrics":
+            self._handle(lambda: api.metrics_snapshot())
+            return
+        if not self._auth_ok(path):
+            return
         parts = self._parts(path)
+        if len(parts) == 3 and parts[:2] == ["v1", "auth"] and parts[2] == "me":
+            self._handle(lambda: api.current_user(self._bearer_token()))
+            return
         if len(parts) == 5 and parts[:2] == ["v1", "notebooks"] and parts[3] == "sources":
             self._handle(lambda: api.get_source(parts[4]))
             return
@@ -57,12 +73,46 @@ class StudyLabHandler(BaseHTTPRequestHandler):
         if len(parts) == 5 and parts[:2] == ["v1", "analytics"] and parts[2] == "user" and parts[4] == "summary":
             self._handle(lambda: api.user_summary(user_id=parts[3]))
             return
+        # ── Phase 4 GET routes ──
+        if len(parts) == 3 and parts[:2] == ["v1", "agent-teaching"]:
+            self._handle(lambda: api.get_multi_agent_session(session_id=parts[2]))
+            return
+        if len(parts) == 4 and parts[:2] == ["v1", "notebooks"] and parts[3] == "imports":
+            self._handle(lambda: api.list_source_imports(notebook_id=parts[2]))
+            return
+        if parts == ["v1", "billing", "plans"]:
+            self._handle(lambda: api.list_plans())
+            return
+        if len(parts) == 4 and parts[:2] == ["v1", "billing"] and parts[2] == "subscription":
+            self._handle(lambda: api.get_subscription(user_id=parts[3]))
+            return
+        if len(parts) == 4 and parts[:2] == ["v1", "billing"] and parts[2] == "usage":
+            self._handle(lambda: api.usage_summary(user_id=parts[3]))
+            return
+        if parts == ["v1", "admin", "metrics"]:
+            self._handle(lambda: api.metrics_snapshot())
+            return
         self._json(404, {"error": {"code": "not_found", "message": f"No route for GET {path}"}})
 
     def do_POST(self) -> None:
         path = urlparse(self.path).path
+        if not self._auth_ok(path):
+            return
         parts = self._parts(path)
         payload = self._read_json()
+        # ── Phase 5: Auth ──
+        if parts == ["v1", "auth", "register"]:
+            self._handle(
+                lambda: api.register_user(
+                    email=payload["email"],
+                    password=payload["password"],
+                    subject_domain=payload.get("subject_domain", "ai_ds"),
+                )
+            )
+            return
+        if parts == ["v1", "auth", "login"]:
+            self._handle(lambda: api.login(email=payload["email"], password=payload["password"]))
+            return
         if parts == ["v1", "notebooks"]:
             self._handle(lambda: api.create_notebook(title=payload["title"], user_id=payload.get("user_id", "demo-user")))
             return
@@ -224,15 +274,80 @@ class StudyLabHandler(BaseHTTPRequestHandler):
                 )
             )
             return
+        # ── Phase 4: Multi-agent teaching ──
+        if len(parts) == 5 and parts[:2] == ["v1", "notebooks"] and parts[3:] == ["agent-teaching", "start"]:
+            self._handle(lambda: api.start_multi_agent_teaching(notebook_id=parts[2]))
+            return
+        if len(parts) == 4 and parts[:2] == ["v1", "agent-teaching"] and parts[3] == "next":
+            self._handle(lambda: api.multi_agent_next(session_id=parts[2]))
+            return
+        if len(parts) == 4 and parts[:2] == ["v1", "agent-teaching"] and parts[3] == "prev":
+            self._handle(lambda: api.multi_agent_prev(session_id=parts[2]))
+            return
+        # ── Phase 4: Source connectors ──
+        if len(parts) == 5 and parts[:2] == ["v1", "notebooks"] and parts[3:] == ["sources", "import"]:
+            self._handle(
+                lambda: api.import_source(
+                    notebook_id=parts[2],
+                    connector_type=payload["connector_type"],
+                    title=payload.get("title", ""),
+                    payload=payload.get("payload", {}),
+                    user_id=payload.get("user_id", "demo-user"),
+                )
+            )
+            return
+        # ── Phase 4: Billing ──
+        if len(parts) == 4 and parts[:2] == ["v1", "billing"] and parts[3] == "subscribe":
+            self._handle(lambda: api.set_plan(user_id=parts[2], tier=payload["tier"]))
+            return
+        if len(parts) == 4 and parts[:2] == ["v1", "billing"] and parts[3] == "usage":
+            self._handle(
+                lambda: api.record_usage(
+                    user_id=parts[2],
+                    action=payload["action"],
+                    quantity=payload.get("quantity", 1),
+                )
+            )
+            return
         self._json(404, {"error": {"code": "not_found", "message": f"No route for POST {path}"}})
 
     def _handle(self, fn):
         try:
             self._json(200, fn())
+        except AuthError as exc:
+            self._json(401, {"error": {"code": "unauthorized", "message": str(exc)}})
+        except PermissionError as exc:
+            self._json(403, {"error": {"code": "forbidden", "message": str(exc)}})
+        except QuotaExceededError as exc:
+            self._json(402, {"error": {"code": "quota_exceeded", "message": str(exc), "quota": exc.detail}})
         except KeyError as exc:
             self._json(404, {"error": {"code": "not_found", "message": str(exc)}})
         except (ValueError, IndexError) as exc:
             self._json(400, {"error": {"code": "bad_request", "message": str(exc)}})
+
+    def _bearer_token(self) -> str:
+        header = self.headers.get("Authorization", "")
+        if header.startswith("Bearer "):
+            return header[len("Bearer "):].strip()
+        return ""
+
+    def _auth_ok(self, path: str) -> bool:
+        """When STUDYLAB_REQUIRE_AUTH is set, require a valid bearer token on non-public paths.
+
+        Returns True if the request may proceed; otherwise sends a 401 and returns False.
+        Default (flag unset) keeps the app open for offline/demo use.
+        """
+        if not _truthy(os.getenv("STUDYLAB_REQUIRE_AUTH")):
+            return True
+        if path in PUBLIC_PATHS:
+            return True
+        token = self._bearer_token()
+        try:
+            api.user_id_from_token(token)
+            return True
+        except AuthError as exc:
+            self._json(401, {"error": {"code": "unauthorized", "message": str(exc)}})
+            return False
 
     def _parts(self, path: str) -> list[str]:
         return [part for part in path.strip("/").split("/") if part]

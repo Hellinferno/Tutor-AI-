@@ -631,6 +631,127 @@ sup {
   font-size: 10px;
 }
 
+/* ── Phase 4: Connectors ── */
+.connectorTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.typeBtn.active {
+  background: var(--blue);
+  color: white;
+  border-color: var(--blue);
+}
+
+/* ── Phase 4: Multi-agent teaching ── */
+.agentTurns {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.agentTurn {
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--blue);
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.agentTurnHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.agentRole {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.agentConf {
+  font-size: 11px;
+  color: var(--green);
+  border: 1px solid #a5d8c4;
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+
+.agentTitle {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+/* ── Phase 4: Pricing ── */
+.planGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.planCard {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.planCard.current {
+  border-color: var(--blue);
+  background: #f0f5ff;
+}
+
+.planName {
+  font-size: 16px;
+}
+
+.planPrice {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--blue);
+}
+
+.planFeatures {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+  flex: 1;
+}
+
+.planFeatures li::before {
+  content: "✓ ";
+  color: var(--green);
+}
+
+.usageBox {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.usageGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px 16px;
+  margin-top: 6px;
+}
+
+.usageRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  border-bottom: 1px solid var(--line);
+  padding: 4px 0;
+}
+
 @media (max-width: 900px) {
   .paperHeader {
     flex-direction: column;
@@ -638,6 +759,39 @@ sup {
   }
 
   .quizGen {
+    grid-template-columns: 1fr;
+  }
+
+  .planGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .usageGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .revisionStats,
+  .analyticsGrid {
+    grid-template-columns: 1fr;
+  }
+
+  h2 {
+    font-size: 20px;
+  }
+}
+
+@media (max-width: 560px) {
+  .workspace {
+    padding: 16px;
+  }
+
+  .panel {
+    padding: 14px;
+    min-height: 0;
+  }
+
+  .voiceControls,
+  .cardActions {
     grid-template-columns: 1fr;
   }
 }

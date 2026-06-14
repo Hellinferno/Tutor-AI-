@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
-  title: StudyLab Phase 0-3 API
-  version: 0.3.0
+  title: StudyLab Phase 0-5 API
+  version: 0.5.0
 servers:
   - url: /v1
 paths:
@@ -104,3 +104,48 @@ paths:
   /voice/tts:
     post:
       summary: Text-to-speech (env-gated provider; mock by default)
+  /notebooks/{notebook_id}/sources/import:
+    post:
+      summary: Import a source via a connector (website/youtube/audio/google_doc/google_slides)
+  /notebooks/{notebook_id}/imports:
+    get:
+      summary: List connector imports for a notebook
+  /notebooks/{notebook_id}/agent-teaching/start:
+    post:
+      summary: Start a multi-agent teaching session (explainer/verifier/coach turns per concept)
+  /agent-teaching/{session_id}:
+    get:
+      summary: Fetch a multi-agent teaching session
+  /agent-teaching/{session_id}/next:
+    post:
+      summary: Advance to the next multi-agent teaching concept
+  /agent-teaching/{session_id}/prev:
+    post:
+      summary: Return to the previous multi-agent teaching concept
+  /billing/plans:
+    get:
+      summary: List plan catalog (free/scholar/pro) with prices, quotas, and features
+  /billing/subscription/{user_id}:
+    get:
+      summary: Fetch a user's subscription (defaults to free on first read)
+  /billing/usage/{user_id}:
+    get:
+      summary: Usage summary for the current billing period (used/limit/remaining per action)
+  /billing/{user_id}/subscribe:
+    post:
+      summary: Change a user's plan via the billing provider (mock or Stripe)
+  /billing/{user_id}/usage:
+    post:
+      summary: Record a metered action for a user
+  /auth/register:
+    post:
+      summary: Register a user (email + password) and return a Bearer JWT
+  /auth/login:
+    post:
+      summary: Authenticate and return a Bearer JWT
+  /auth/me:
+    get:
+      summary: Return the authenticated user for the supplied Bearer token
+  /metrics:
+    get:
+      summary: Observability snapshot (refusal rate, citation coverage, verified rate, cache hit, solve latency)

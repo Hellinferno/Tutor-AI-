@@ -1,6 +1,6 @@
 # 10 — Testing & Evaluation 🔵
 
-The project's quality gate: what runs, what it proves, and the Phase 1–3 acceptance criteria.
+The project's quality gate: what runs, what it proves, and the Phase 1–5 acceptance criteria.
 
 > 🟢 **Plain English:** before code is considered "done," it must pass automatic checks. There are
 > two: a **test suite** (does each feature behave correctly?) and an **eval gate** (does the solver
@@ -12,16 +12,24 @@ The project's quality gate: what runs, what it proves, and the Phase 1–3 accep
 
 | Command | What it checks | Current result |
 |---|---|---|
-| `python -m unittest discover tests` | 64 unit/integration tests | ✅ 64 passed |
+| `python -m unittest discover tests` | 111 unit/integration tests | ✅ 111 passed |
 | `python packages/eval/run_eval.py` | solver verification gate | ✅ 15 cases, `false_verified_rate=0` |
+| `python -m compileall packages services` | every module byte‑compiles (per [Instructions/12](../Instructions/12-testing-strategy.md)) | ✅ clean |
 | `cd apps/web && npm run build` | web compiles + type‑checks + prerenders | ✅ green (interactive app) |
 
 CI runs the first two (job `python-test`) and a web manifest check (job `web-static`) on every
 push — see [.circleci/config.yml](../.circleci/config.yml).
 
+> 🔒 **Security:** a focused security review of the Phase 4 change set (connectors, multi‑agent
+> teaching, pricing/billing) found **no high/medium‑confidence vulnerabilities** — the new SQL is
+> fully parameterized, the connector never fetches remote URLs (no SSRF), billing secrets stay
+> server‑side, and the web panels use React's default escaping. Production auth (Bearer JWT per
+> [Instructions/06](../Instructions/06-api-contracts.md)) remains the documented next step before a
+> public launch.
+
 ---
 
-## The test suite (64 tests)
+## The test suite (111 tests)
 
 ### `tests/test_phase1_core.py` — 12 tests
 - **Chunking**: offsets are stable (a chunk's `[start:end]` slice reproduces its text).
@@ -66,9 +74,34 @@ push — see [.circleci/config.yml](../.circleci/config.yml).
 - **Voice**: the mock provider round‑trips STT/TTS (`ok`, `text`/`audio_base64`); bad input returns
   `ok: false` with an error.
 
-> The gateway HTTP routing for **all Phase 2 and Phase 3 endpoints** is additionally smoke‑tested
-> end‑to‑end against a live `ThreadingHTTPServer` (15 UI flows, every route returns 200), and the
-> web app passes `tsc --noEmit` + `next build`.
+### `tests/test_phase4_core.py` — 23 tests
+- **Connectors**: website/YouTube/audio/Doc/Slides imports become cited, queryable sources; a
+  YouTube transcript list is joined; HTML payloads have `<script>`/`<style>` stripped; invalid
+  inputs (unsupported type, missing/empty text, missing or non‑absolute url) raise `ValueError`;
+  imports are scoped per notebook and meter `source_import` usage.
+- **Multi‑agent teaching**: a session builds three cited turns per concept
+  (`concept_explainer`/`grounding_verifier`/`practice_coach`); next/prev navigate and set
+  `completed`; verifier confidence stays in `[0,1]`.
+- **Pricing**: the catalog lists `free/scholar/pro`; a new user defaults to Free; `set_plan`
+  changes tier; an unknown tier raises; metering counts usage; quotas report `remaining`/`allowed`
+  and block at the limit; Pro is unlimited; the usage summary has one entry per metered action.
+- **Persistence**: imports, agent sessions, subscriptions, and usage all survive a SQLite reopen.
+
+### `tests/test_phase5_core.py` — 20 tests
+- **Password hashing**: PBKDF2 hashes are salted (two hashes of the same password differ), verify
+  correctly, reject wrong passwords, and never contain the plaintext.
+- **Auth**: register returns a token and a public user (no hash); login round‑trips and a token
+  resolves the user; wrong password, duplicate email, invalid email, and short password are
+  rejected; tampered/garbage tokens are rejected; a user survives a SQLite reopen.
+- **Authorization**: the owner can access their notebook; a non‑owner raises `PermissionError`.
+- **Quota enforcement**: `enforce` blocks once the free quota is spent; Pro is unlimited; the
+  `_guard` path returns `402` after the free `source_import` limit when `STUDYLAB_ENFORCE_QUOTAS` is set.
+- **Observability**: metrics track asks/solves with correct refusal and verified rates; the snapshot
+  has the full shape (incl. solve‑latency percentiles).
+
+> The gateway HTTP routing for **all Phase 2–5 endpoints** is additionally smoke‑tested end‑to‑end
+> against a live `ThreadingHTTPServer` (every route returns 200; auth enforcement returns 401/200 and
+> quota enforcement returns 402), and the web app passes `tsc --noEmit` + `next build`.
 
 ---
 
@@ -142,3 +175,50 @@ From [Instructions/10-development-phases.md](../Instructions/10-development-phas
 ➡️ **The Phase 3 gate passes**, and the web app is wired to all of it (no static mockups). Live
 Postgres/Qdrant/Redis and the real voice provider remain env‑gated adapters per
 [11-current-status.md](11-current-status.md).
+
+---
+
+## Phase 4 acceptance gate (from the spec)
+
+From [Instructions/10-development-phases.md](../Instructions/10-development-phases.md), Phase 4 is
+*multi‑agent teaching, mobile, scaling/pricing/economics, and more source connectors (websites,
+YouTube, audio, Google Docs/Slides).*
+
+| Gate criterion | Status |
+|---|---|
+| More source connectors | ✅ (`SourceConnectorEngine`: website / YouTube / audio / google_doc / google_slides → chunk + guide + cite) |
+| Multi‑agent teaching | ✅ (`TeachingEngine.start_multi_agent_session`: explainer / grounding‑verifier / practice‑coach turns per concept) |
+| Pricing & economics | ✅ (`PricingEngine`: Free/Scholar/Pro plans, subscriptions, usage metering, quota checks; Stripe seam) |
+| Mobile | ◑ Web app is fully **responsive** (phone breakpoints); a **native** app remains later scope per [Instructions/01](../Instructions/01-product-vision.md) |
+| Scaling | ◑ The Postgres / Qdrant / Redis **adapter seams** are the scaling path; full horizontal‑scaling infra remains later scope |
+| Tests pass | ✅ 23 Phase 4 tests + gateway HTTP smoke test + clean security review |
+
+➡️ **The Phase 4 build deliverables pass.** The two partial items (native mobile, horizontal
+scaling) are explicitly *later/out‑of‑scope* in the product vision and engineering‑scope specs, not
+Phase‑4 build tasks. Connector fetch‑workers and Stripe billing are env‑gated adapters per
+[11-current-status.md](11-current-status.md).
+
+---
+
+## Phase 5 acceptance gate (production readiness)
+
+Phase 5 is not in the original phase list; it was added to deliver the one remaining unbuilt scope
+item — **"Full production auth"** from
+[Instructions/09-engineering-scope-definition.md](../Instructions/09-engineering-scope-definition.md)
+— plus the authorization, quota enforcement, and observability needed for a real launch (the API
+contract's `Auth: Bearer JWT`, and the metrics + "private per user" notes in
+[Instructions/06](../Instructions/06-api-contracts.md) / [Instructions/11](../Instructions/11-environment-and-devops.md)).
+
+| Gate criterion | Status |
+|---|---|
+| Authentication (email/password) | ✅ (`AuthEngine`: PBKDF2 hashing, stateless HS256 JWT, register/login) |
+| Bearer‑JWT API auth | ✅ (`/v1/auth/*`; gateway enforces when `STUDYLAB_REQUIRE_AUTH=true`) |
+| Authorization (private per user) | ✅ (`authorize_notebook` ownership check) |
+| Quota enforcement | ✅ (`PricingEngine.enforce` → HTTP 402 when `STUDYLAB_ENFORCE_QUOTAS=true`) |
+| Observability metrics | ✅ (`/metrics`: refusal rate, citation coverage, verified rate, cache hit, solve latency) |
+| Secrets server‑side only | ✅ (`STUDYLAB_JWT_SECRET` / `STRIPE_API_KEY` read from env; hashes never returned) |
+| Tests pass | ✅ 20 Phase 5 tests + gateway HTTP smoke test + clean security review |
+
+➡️ **The Phase 5 gate passes.** Enforcement flags ship **off by default** so the app stays
+runnable offline; flipping them on (plus a strong `STUDYLAB_JWT_SECRET`) is the production switch.
+OAuth/SSO, password reset, and a managed metrics backend remain later concerns.

@@ -12,8 +12,10 @@ from .models import (
     AnswerKey,
     Artifact,
     Attempt,
+    AgentTurn,
     Citation,
     EvalReport,
+    MultiAgentTeachingSession,
     Notebook,
     QuestionPaper,
     Quiz,
@@ -24,14 +26,26 @@ from .models import (
     Source,
     SourceChunk,
     SourceGuide,
+    SourceImport,
     StudentProfile,
+    Subscription,
     TopicMastery,
+    UsageRecord,
+    User,
     VoiceResult,
     WhiteboardSession,
 )
 
 
 SCHEMA = """
+CREATE TABLE IF NOT EXISTS users (
+  id TEXT PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  subject_domain TEXT NOT NULL DEFAULT 'ai_ds',
+  prefs TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS notebooks (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
@@ -63,6 +77,17 @@ CREATE TABLE IF NOT EXISTS source_guides (
   key_concepts TEXT NOT NULL,
   suggested_questions TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS source_imports (
+  id TEXT PRIMARY KEY,
+  notebook_id TEXT NOT NULL,
+  source_id TEXT NOT NULL,
+  connector_type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  status TEXT NOT NULL,
+  metadata TEXT NOT NULL,
+  warnings TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS solutions (
   id TEXT PRIMARY KEY,
   question_id TEXT NOT NULL,
@@ -88,6 +113,14 @@ CREATE TABLE IF NOT EXISTS whiteboard_sessions (
   notebook_id TEXT NOT NULL,
   current_concept_idx INTEGER NOT NULL,
   concepts TEXT NOT NULL,
+  completed INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS multi_agent_teaching_sessions (
+  id TEXT PRIMARY KEY,
+  notebook_id TEXT NOT NULL,
+  current_concept_idx INTEGER NOT NULL,
+  concepts TEXT NOT NULL,
+  agent_turns TEXT NOT NULL,
   completed INTEGER NOT NULL
 );
 CREATE TABLE IF NOT EXISTS quizzes (
@@ -169,11 +202,32 @@ CREATE TABLE IF NOT EXISTS topic_masteries (
   attempt_count INTEGER NOT NULL DEFAULT 0,
   last_attempt_date TEXT
 );
+CREATE TABLE IF NOT EXISTS subscriptions (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  tier TEXT NOT NULL,
+  status TEXT NOT NULL,
+  billing_period TEXT NOT NULL,
+  provider TEXT NOT NULL,
+  external_id TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS usage_records (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  action TEXT NOT NULL,
+  billing_period TEXT NOT NULL,
+  quantity INTEGER NOT NULL,
+  created_at TEXT NOT NULL
+);
 CREATE INDEX IF NOT EXISTS idx_chunks_notebook ON source_chunks (notebook_id);
 CREATE INDEX IF NOT EXISTS idx_solutions_hash ON solutions (question_hash, created_at);
 CREATE INDEX IF NOT EXISTS idx_revision_due ON revision_cards (user_id, due_date);
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions (user_id, notebook_id);
 CREATE INDEX IF NOT EXISTS idx_masteries_profile ON topic_masteries (student_profile_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_user ON subscriptions (user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_usage_user_period ON usage_records (user_id, billing_period);
 """
 
 
@@ -245,13 +299,19 @@ class SqliteStudyLabStore:
             self._ensure_compat_columns()
             self._conn.commit()
 
+        self.users = _TableView(self._all_users, self._get_user)
         self.notebooks = _TableView(self._all_notebooks, self._get_notebook)
         self.sources = _TableView(self._all_sources, self._get_source)
         self.chunks = _TableView(self._all_chunks, self._get_chunk)
         self.guides = _TableView(self._all_guides, self.get_guide)
+        self.source_imports = _TableView(self._all_source_imports, self._get_source_import)
         self.solutions = _TableView(self._all_solutions, self._get_solution)
         self.artifacts = _TableView(self._all_artifacts, self._get_artifact)
         self.whiteboard_sessions = _TableView(self._all_whiteboard_sessions, self._get_whiteboard_session)
+        self.multi_agent_teaching_sessions = _TableView(
+            self._all_multi_agent_teaching_sessions,
+            self._get_multi_agent_teaching_session,
+        )
         self.quizzes = _TableView(self._all_quizzes, self._get_quiz)
         self.question_papers = _TableView(self._all_question_papers, self._get_question_paper)
         self.attempts = _TableView(self._all_attempts, self._get_attempt)
@@ -263,6 +323,10 @@ class SqliteStudyLabStore:
         self.sessions = _TableView(self._all_sessions, self._get_session)
         self.student_profiles = _TableView(self._all_student_profiles, self._get_student_profile)
         self.topic_masteries = _TableView(self._all_topic_masteries, self._get_topic_mastery)
+
+        # Phase 4 table views (pricing & economics)
+        self.subscriptions = _TableView(self._all_subscriptions, self._get_subscription)
+        self.usage_records = _TableView(self._all_usage_records, self._get_usage_record)
 
     def _ensure_compat_columns(self) -> None:
         columns = {row["name"] for row in self._conn.execute("PRAGMA table_info(answer_keys)").fetchall()}
@@ -296,6 +360,27 @@ class SqliteStudyLabStore:
         return value
 
     # -- writes -------------------------------------------------------------------
+
+    def add_user(self, user: User) -> User:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO users (id, email, password_hash, subject_domain, prefs, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (user.id, user.email, user.password_hash, user.subject_domain, json.dumps(user.prefs), user.created_at),
+            )
+            self._conn.commit()
+        return user
+
+    def require_user(self, user_id: str) -> User:
+        user = self._get_user(user_id)
+        if user is None:
+            raise KeyError(f"User not found: {user_id}")
+        return user
+
+    def get_user_by_email(self, email: str) -> User | None:
+        with self._lock:
+            row = self._conn.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
+        return self._row_to_user(row) if row else None
 
     def add_notebook(self, title: str, user_id: str = "demo-user") -> Notebook:
         notebook = Notebook(id=self.next_id("notebook"), title=title, user_id=user_id)
@@ -366,6 +451,101 @@ class SqliteStudyLabStore:
             )
             self._conn.commit()
         return guide
+
+    def add_source_import(self, source_import: SourceImport) -> SourceImport:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO source_imports "
+                "(id, notebook_id, source_id, connector_type, title, status, metadata, warnings, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    source_import.id,
+                    source_import.notebook_id,
+                    source_import.source_id,
+                    source_import.connector_type,
+                    source_import.title,
+                    source_import.status,
+                    json.dumps(source_import.metadata),
+                    json.dumps(source_import.warnings),
+                    source_import.created_at,
+                ),
+            )
+            self._conn.commit()
+        return source_import
+
+    # ── Phase 4: Pricing & economics ─────────────────────────────────────
+
+    def add_subscription(self, subscription: Subscription) -> Subscription:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO subscriptions "
+                "(id, user_id, tier, status, billing_period, provider, external_id, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    subscription.id,
+                    subscription.user_id,
+                    subscription.tier,
+                    subscription.status,
+                    subscription.billing_period,
+                    subscription.provider,
+                    subscription.external_id,
+                    subscription.created_at,
+                    subscription.updated_at,
+                ),
+            )
+            self._conn.commit()
+        return subscription
+
+    def save_subscription(self, subscription: Subscription) -> Subscription:
+        with self._lock:
+            self._conn.execute(
+                "UPDATE subscriptions "
+                "SET tier=?, status=?, billing_period=?, provider=?, external_id=?, updated_at=? WHERE id=?",
+                (
+                    subscription.tier,
+                    subscription.status,
+                    subscription.billing_period,
+                    subscription.provider,
+                    subscription.external_id,
+                    subscription.updated_at,
+                    subscription.id,
+                ),
+            )
+            self._conn.commit()
+        return subscription
+
+    def subscription_for(self, user_id: str) -> Subscription | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT * FROM subscriptions WHERE user_id=? ORDER BY created_at DESC LIMIT 1",
+                (user_id,),
+            ).fetchone()
+        return self._row_to_subscription(row) if row else None
+
+    def add_usage_record(self, record: UsageRecord) -> UsageRecord:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO usage_records (id, user_id, action, billing_period, quantity, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    record.id,
+                    record.user_id,
+                    record.action,
+                    record.billing_period,
+                    record.quantity,
+                    record.created_at,
+                ),
+            )
+            self._conn.commit()
+        return record
+
+    def usage_for_period(self, user_id: str, billing_period: str) -> list[UsageRecord]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM usage_records WHERE user_id=? AND billing_period=?",
+                (user_id, billing_period),
+            ).fetchall()
+        return [self._row_to_usage_record(row) for row in rows]
 
     def add_solution(self, solution: Solution) -> Solution:
         with self._lock:
@@ -447,6 +627,40 @@ class SqliteStudyLabStore:
                 (
                     session.current_concept_idx,
                     json.dumps([asdict(c) for c in session.concepts]),
+                    int(session.completed),
+                    session.id,
+                ),
+            )
+            self._conn.commit()
+        return session
+
+    def add_multi_agent_teaching_session(self, session: MultiAgentTeachingSession) -> MultiAgentTeachingSession:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO multi_agent_teaching_sessions "
+                "(id, notebook_id, current_concept_idx, concepts, agent_turns, completed) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    session.id,
+                    session.notebook_id,
+                    session.current_concept_idx,
+                    json.dumps([asdict(c) for c in session.concepts]),
+                    json.dumps([asdict(turn) for turn in session.agent_turns]),
+                    int(session.completed),
+                ),
+            )
+            self._conn.commit()
+        return session
+
+    def save_multi_agent_teaching_session(self, session: MultiAgentTeachingSession) -> MultiAgentTeachingSession:
+        with self._lock:
+            self._conn.execute(
+                "UPDATE multi_agent_teaching_sessions "
+                "SET current_concept_idx=?, concepts=?, agent_turns=?, completed=? WHERE id=?",
+                (
+                    session.current_concept_idx,
+                    json.dumps([asdict(c) for c in session.concepts]),
+                    json.dumps([asdict(turn) for turn in session.agent_turns]),
                     int(session.completed),
                     session.id,
                 ),
@@ -676,6 +890,18 @@ class SqliteStudyLabStore:
             raise KeyError(f"Whiteboard session not found: {session_id}")
         return session
 
+    def require_multi_agent_teaching_session(self, session_id: str) -> MultiAgentTeachingSession:
+        session = self._get_multi_agent_teaching_session(session_id)
+        if session is None:
+            raise KeyError(f"Multi-agent teaching session not found: {session_id}")
+        return session
+
+    def require_source_import(self, import_id: str) -> SourceImport:
+        source_import = self._get_source_import(import_id)
+        if source_import is None:
+            raise KeyError(f"Source import not found: {import_id}")
+        return source_import
+
     def require_quiz(self, quiz_id: str) -> Quiz:
         quiz = self._get_quiz(quiz_id)
         if quiz is None:
@@ -792,6 +1018,52 @@ class SqliteStudyLabStore:
             suggested_questions=json.loads(row["suggested_questions"]),
         )
 
+    def _row_to_source_import(self, row: sqlite3.Row) -> SourceImport:
+        return SourceImport(
+            id=row["id"],
+            notebook_id=row["notebook_id"],
+            source_id=row["source_id"],
+            connector_type=row["connector_type"],
+            title=row["title"],
+            status=row["status"],
+            metadata=json.loads(row["metadata"]),
+            warnings=json.loads(row["warnings"]),
+            created_at=row["created_at"],
+        )
+
+    def _row_to_subscription(self, row: sqlite3.Row) -> Subscription:
+        return Subscription(
+            id=row["id"],
+            user_id=row["user_id"],
+            tier=row["tier"],
+            status=row["status"],
+            billing_period=row["billing_period"],
+            provider=row["provider"],
+            external_id=row["external_id"],
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
+        )
+
+    def _row_to_usage_record(self, row: sqlite3.Row) -> UsageRecord:
+        return UsageRecord(
+            id=row["id"],
+            user_id=row["user_id"],
+            action=row["action"],
+            billing_period=row["billing_period"],
+            quantity=row["quantity"],
+            created_at=row["created_at"],
+        )
+
+    def _row_to_user(self, row: sqlite3.Row) -> User:
+        return User(
+            id=row["id"],
+            email=row["email"],
+            password_hash=row["password_hash"],
+            subject_domain=row["subject_domain"],
+            prefs=json.loads(row["prefs"]),
+            created_at=row["created_at"],
+        )
+
     def _row_to_solution(self, row: sqlite3.Row) -> Solution:
         return Solution(
             id=row["id"],
@@ -828,6 +1100,20 @@ class SqliteStudyLabStore:
             notebook_id=row["notebook_id"],
             current_concept_idx=row["current_concept_idx"],
             concepts=concepts,
+            completed=bool(row["completed"]),
+        )
+
+    def _row_to_multi_agent_teaching_session(self, row: sqlite3.Row) -> MultiAgentTeachingSession:
+        from .models import WhiteboardConcept
+
+        concepts = [WhiteboardConcept(**c) for c in json.loads(row["concepts"])]
+        turns = [AgentTurn(**turn) for turn in json.loads(row["agent_turns"])]
+        return MultiAgentTeachingSession(
+            id=row["id"],
+            notebook_id=row["notebook_id"],
+            current_concept_idx=row["current_concept_idx"],
+            concepts=concepts,
+            agent_turns=turns,
             completed=bool(row["completed"]),
         )
 
@@ -896,6 +1182,16 @@ class SqliteStudyLabStore:
 
     # -- single/all loaders backing the table views -------------------------------
 
+    def _get_user(self, key: str) -> User | None:
+        with self._lock:
+            row = self._conn.execute("SELECT * FROM users WHERE id=?", (key,)).fetchone()
+        return self._row_to_user(row) if row else None
+
+    def _all_users(self) -> dict[str, User]:
+        with self._lock:
+            rows = self._conn.execute("SELECT * FROM users").fetchall()
+        return {row["id"]: self._row_to_user(row) for row in rows}
+
     def _get_notebook(self, key: str) -> Notebook | None:
         with self._lock:
             row = self._conn.execute("SELECT * FROM notebooks WHERE id=?", (key,)).fetchone()
@@ -951,6 +1247,36 @@ class SqliteStudyLabStore:
             rows = self._conn.execute("SELECT * FROM artifacts").fetchall()
         return {row["id"]: self._row_to_artifact(row) for row in rows}
 
+    def _get_source_import(self, key: str) -> SourceImport | None:
+        with self._lock:
+            row = self._conn.execute("SELECT * FROM source_imports WHERE id=?", (key,)).fetchone()
+        return self._row_to_source_import(row) if row else None
+
+    def _all_source_imports(self) -> dict[str, SourceImport]:
+        with self._lock:
+            rows = self._conn.execute("SELECT * FROM source_imports").fetchall()
+        return {row["id"]: self._row_to_source_import(row) for row in rows}
+
+    def _get_subscription(self, key: str) -> Subscription | None:
+        with self._lock:
+            row = self._conn.execute("SELECT * FROM subscriptions WHERE id=?", (key,)).fetchone()
+        return self._row_to_subscription(row) if row else None
+
+    def _all_subscriptions(self) -> dict[str, Subscription]:
+        with self._lock:
+            rows = self._conn.execute("SELECT * FROM subscriptions").fetchall()
+        return {row["id"]: self._row_to_subscription(row) for row in rows}
+
+    def _get_usage_record(self, key: str) -> UsageRecord | None:
+        with self._lock:
+            row = self._conn.execute("SELECT * FROM usage_records WHERE id=?", (key,)).fetchone()
+        return self._row_to_usage_record(row) if row else None
+
+    def _all_usage_records(self) -> dict[str, UsageRecord]:
+        with self._lock:
+            rows = self._conn.execute("SELECT * FROM usage_records").fetchall()
+        return {row["id"]: self._row_to_usage_record(row) for row in rows}
+
     # ── Phase 2 loaders ───────────────────────────────────────────────────
 
     def _get_whiteboard_session(self, key: str) -> WhiteboardSession | None:
@@ -962,6 +1288,16 @@ class SqliteStudyLabStore:
         with self._lock:
             rows = self._conn.execute("SELECT * FROM whiteboard_sessions").fetchall()
         return {row["id"]: self._row_to_whiteboard_session(row) for row in rows}
+
+    def _get_multi_agent_teaching_session(self, key: str) -> MultiAgentTeachingSession | None:
+        with self._lock:
+            row = self._conn.execute("SELECT * FROM multi_agent_teaching_sessions WHERE id=?", (key,)).fetchone()
+        return self._row_to_multi_agent_teaching_session(row) if row else None
+
+    def _all_multi_agent_teaching_sessions(self) -> dict[str, MultiAgentTeachingSession]:
+        with self._lock:
+            rows = self._conn.execute("SELECT * FROM multi_agent_teaching_sessions").fetchall()
+        return {row["id"]: self._row_to_multi_agent_teaching_session(row) for row in rows}
 
     def _get_quiz(self, key: str) -> Quiz | None:
         with self._lock:

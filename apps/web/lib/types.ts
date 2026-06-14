@@ -240,3 +240,124 @@ export interface VoiceResult {
   audio_base64: string;
   error: string;
 }
+
+// ── Phase 4 ──
+
+export type ConnectorType = "website" | "youtube" | "audio" | "google_doc" | "google_slides";
+export type PlanTier = "free" | "scholar" | "pro";
+
+export interface SourceImport {
+  id: string;
+  notebook_id: string;
+  source_id: string;
+  connector_type: ConnectorType;
+  title: string;
+  status: string;
+  metadata: Record<string, unknown>;
+  warnings: string[];
+  created_at: string;
+}
+
+export interface ImportResult {
+  source: { id: string; title: string; kind: string };
+  source_guide: SourceGuide;
+  import: SourceImport;
+}
+
+export interface ImportList {
+  imports: SourceImport[];
+  supported_types: ConnectorType[];
+}
+
+export interface AgentTurn {
+  agent_id: string;
+  role: string;
+  concept_index: number;
+  title: string;
+  content: string;
+  citations: Citation[];
+  confidence: number;
+}
+
+export interface MultiAgentTeachingSession {
+  id: string;
+  notebook_id: string;
+  current_concept_idx: number;
+  concepts: WhiteboardConcept[];
+  agent_turns: AgentTurn[];
+  completed: boolean;
+}
+
+export interface Plan {
+  tier: PlanTier;
+  name: string;
+  price_cents: number;
+  currency: string;
+  quotas: Record<string, number | null>;
+  features: string[];
+}
+
+export interface Subscription {
+  id: string;
+  user_id: string;
+  tier: PlanTier;
+  status: string;
+  billing_period: string;
+  provider: string;
+  external_id?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface QuotaStatus {
+  action: string;
+  used: number;
+  limit: number | null;
+  remaining: number | null;
+  allowed: boolean;
+}
+
+export interface UsageSummary {
+  user_id: string;
+  tier: PlanTier;
+  status: string;
+  billing_period: string;
+  provider: string;
+  price_cents: number;
+  currency: string;
+  actions: QuotaStatus[];
+}
+
+export interface SubscribeResult {
+  subscription: Subscription;
+  checkout: { provider: string; status: string; checkout_url: string | null; external_id: string | null; message: string };
+  plan: Plan;
+}
+
+// ── Phase 5: Auth & observability ──
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  subject_domain: string;
+  prefs: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface AuthResult {
+  user: AuthUser;
+  token: string;
+  token_type: string;
+}
+
+export interface MetricsSnapshot {
+  asks: number;
+  weak_retrieval_refusal_rate: number;
+  citation_coverage_rate: number;
+  solves: number;
+  verified_rate: number;
+  false_verified_rate: number;
+  cache_hit_rate: number;
+  solve_latency_ms: { p50: number; p90: number; p99: number };
+  notion_export_success_rate: number;
+}

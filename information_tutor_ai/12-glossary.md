@@ -34,6 +34,19 @@ Plain‑English definitions of the terms used across this project and these docs
 | **Student model / mastery** | A per‑topic score (0–1) of how well you know each topic, derived from your quiz/paper results; splits topics into weak vs. strong. |
 | **Analytics** | Progress views built from your attempt history: a per‑attempt score trend and an overall summary. |
 | **STT / TTS** | Speech‑to‑Text (transcribe audio) and Text‑to‑Speech (read text aloud); via an env‑gated voice provider (mock by default). |
+| **Connector** | A way to bring an external source into a notebook — website, YouTube, audio, Google Doc, or Slides. A connector worker extracts the text; the core chunks and cites it like an upload. |
+| **Source import** | The provenance record for a connector‑imported source (type, url/id metadata, warnings) — separate from the imported text itself, which lives in `sources`. |
+| **Multi‑agent teaching** | A teaching mode where each concept is covered by three cited "agents": an explainer, a grounding‑verifier (confidence = how well it's sourced), and a practice‑coach. |
+| **Plan / tier** | A subscription level (Free, Scholar, Pro) with monthly usage allowances (quotas) and a price. |
+| **Quota / usage metering** | Counting metered actions (ask, solve, quiz, …) per month and comparing the count to the plan's allowance. |
+| **Billing provider** | A pluggable payment integration; `MockBillingProvider` auto‑activates locally, `StripeBillingProvider` runs real Checkout when `STRIPE_API_KEY` is set. |
+| **Authentication (auth)** | Proving who you are — here, signing up / signing in with an email and password. |
+| **Authorization** | Deciding what you're allowed to do — here, only opening your *own* notebooks (ownership checks). |
+| **Password hash (PBKDF2)** | A one‑way, salted, deliberately‑slow transform of your password; the app stores the hash, never the password itself. |
+| **JWT (JSON Web Token)** | A signed token the server gives you at login and you send back on each request to prove you're logged in (stateless — no server‑side session needed). |
+| **Bearer token** | A token sent in the `Authorization: Bearer …` header to authenticate a request. |
+| **Quota enforcement** | Actually blocking an action once you've used up your plan's monthly allowance (returns "402 — upgrade your plan"). |
+| **Observability / metrics** | Live health signals about the running system (refusal rate, citation coverage, verified rate, cache hit, solve latency) exposed at `/metrics`. |
 | **Notion export** | Sending a generated artifact into the Notion note‑taking app. |
 | **Gateway** | The backend "front door" service that receives requests from the website. |
 | **Service** | A standalone backend program (here: gateway, rag, solver). |
@@ -49,4 +62,4 @@ Plain‑English definitions of the terms used across this project and these docs
 | **CI (Continuous Integration)** | Automated checks that run on every code push (here, CircleCI). |
 | **Eval / benchmark** | A fixed set of test problems used to measure solver quality. |
 | **Env‑gated adapter** | Code whose live behaviour turns on only when an environment variable / external service is configured. |
-| **Phase 0–3 / Phase 4** | Built stages: foundation (0), grounded RAG + verified solver (1), teaching/quiz/paper (2), memory/revision/analytics/voice (3). Phase 4 (multi‑agent, mobile, more connectors) is planned. |
+| **Phase 0–5** | Built stages: foundation (0), grounded RAG + verified solver (1), teaching/quiz/paper (2), memory/revision/analytics/voice (3), connectors + multi‑agent teaching + pricing (4), production readiness — auth, authorization, quota enforcement, observability (5). Remaining later: native mobile, horizontal‑scaling infra, and OAuth/SSO. |

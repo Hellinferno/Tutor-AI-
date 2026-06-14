@@ -1,8 +1,8 @@
-# StudyLab Phase 0-2
+# StudyLab Phase 0-5
 
 NotebookLM-inspired AI study lab for AI, data science, analytics, and finance learners.
 
-This repository implements the Phase 0-2 vertical slice:
+This repository implements the Phase 0-5 vertical slice (111 tests, `false_verified_rate=0`):
 
 - notebooks and source upload
 - source guide generation
@@ -15,8 +15,14 @@ This repository implements the Phase 0-2 vertical slice:
 - quiz generation with verified answer keys
 - question paper generation with verified answer keys
 - auto-evaluation attempts and reports
+- spaced-repetition revision (SM-2), per-topic mastery, progress analytics, voice I/O
+- **Phase 4** source connectors (website / YouTube / audio / Google Doc / Slides)
+- **Phase 4** multi-agent teaching (explainer / grounding-verifier / practice-coach turns)
+- **Phase 4** pricing & economics (Free/Scholar/Pro plans, usage metering, quota checks, Stripe seam)
+- **Phase 5** production readiness: email/password auth (PBKDF2 + stateless HS256 JWT), per-user authorization, env-gated quota enforcement (HTTP 402), and a `/metrics` observability endpoint
 - durable SQLite persistence (opt-in) alongside the in-memory store
 - runnable gateway, rag, and solver services with Dockerfiles and Compose
+- an interactive, responsive Next.js web app (16 panels) wired to the gateway
 - a prompt template library with a loader
 - CI, migrations, fixtures, and tests
 
@@ -70,9 +76,15 @@ Prompt templates live in `packages/prompts` (indexed by `registry.json`) and are
 
 Set `NOTION_MOCK_EXPORT=true` for local Notion export demos. Set `NOTION_API_KEY` to use the real Notion API.
 
-## Phase 2 Learning Surfaces
+## Learning surfaces (Phase 2-4)
 
 Phase 2 adds deterministic local engines for teaching, quizzes, papers, answer keys, attempts, and reports. Answer keys include `verified` and `verification_method` metadata so the product can distinguish checked keys from draft content.
+
+Phase 3 adds spaced-repetition revision (SM-2), a per-topic student mastery model, progress analytics, and an env-gated voice provider (mock by default, Gemini with `GEMINI_API_KEY`).
+
+Phase 4 adds source connectors (website / YouTube / audio / Google Doc / Slides — content is chunked and cited exactly like an upload), multi-agent teaching (explainer / grounding-verifier / practice-coach turns per concept), and a pricing layer (Free/Scholar/Pro plans, usage metering, quota checks). Billing runs through a mock provider by default and a real Stripe Checkout seam with `STRIPE_API_KEY`.
+
+Phase 5 adds production readiness: first-party email/password auth (PBKDF2-HMAC-SHA256 hashing, stateless HS256 JWTs — stdlib only), per-user authorization (notebook ownership), quota enforcement (over-limit metered actions return HTTP 402), and an in-process `/metrics` observability endpoint. Auth and quota enforcement are gated behind `STUDYLAB_REQUIRE_AUTH` / `STUDYLAB_ENFORCE_QUOTAS` (off by default) so the app stays runnable offline. The full surface is documented in `docs/openapi.phase1.yml` and `information_tutor_ai/`.
 
 ## RAG Architecture
 

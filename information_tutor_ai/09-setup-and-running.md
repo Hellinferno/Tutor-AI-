@@ -28,7 +28,7 @@ From the repository root (`tutor AI/`):
 # Make the core importable (PowerShell)
 $env:PYTHONPATH = "packages/studylab_core"
 
-# Run the full test suite (64 tests)
+# Run the full test suite (111 tests)
 python -m unittest discover tests
 
 # Run the solver quality gate (must report false_verified_rate=0)
@@ -79,8 +79,9 @@ python -m services.gateway.app.main          # http://localhost:8000
 cd apps/web; npm run dev                      # http://localhost:3000
 ```
 Then open the dev server, create a notebook in the header, upload a source, and every panel
-(ask, teach, solve, quiz, paper, artifacts, report, revision, analytics) works end‑to‑end. The
-web app reads the gateway URL from `NEXT_PUBLIC_API_BASE` (default `http://localhost:8000/v1`).
+(account, sources, connectors, ask, teach, multi‑agent, solve, quiz, paper, artifacts, report,
+revision, analytics, voice, plans, metrics) works end‑to‑end. The web app reads the gateway URL from
+`NEXT_PUBLIC_API_BASE` (default `http://localhost:8000/v1`).
 
 ---
 
@@ -108,6 +109,11 @@ All documented in [.env.example](../.env.example). The ones that change behaviou
 | `NOTION_MOCK_EXPORT` | `true` → mock Notion export for demos. |
 | `NOTION_API_KEY` | Set → real Notion export. |
 | `GEMINI_API_KEY` | Set → real voice (STT/TTS) provider; unset → mock. |
+| `STRIPE_API_KEY` | Set → real Stripe Checkout billing; unset → mock billing (auto‑activates). |
+| `STRIPE_SUCCESS_URL` / `STRIPE_CANCEL_URL` | Redirect targets for the Stripe Checkout session. |
+| `STUDYLAB_JWT_SECRET` | HS256 signing secret for auth tokens (dev fallback if unset — set a strong value in prod). |
+| `STUDYLAB_REQUIRE_AUTH` | `true` → gateway requires a Bearer token on non‑public routes (default off). |
+| `STUDYLAB_ENFORCE_QUOTAS` | `true` → over‑quota metered actions return HTTP 402 (default off). |
 
 Variables present for the **production target** but not yet the live path: `DATABASE_URL`
 (Postgres), `QDRANT_URL`/`QDRANT_COLLECTION`, `REDIS_URL`, `EMBEDDINGS_ENDPOINT`. See

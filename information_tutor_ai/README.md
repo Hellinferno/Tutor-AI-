@@ -48,12 +48,17 @@ your questions **using only those sources** (with citations), refuses to answer 
 support, **solves math/finance/coding problems and verifies the answers**, generates study
 artifacts (summary notes, study guides, planners, revision cards) that can be exported to
 Notion, **teaches, quizzes, and tests you** with verified answer keys and auto‑graded reports,
-and **remembers your progress** with spaced‑repetition revision, per‑topic mastery, analytics,
-and voice I/O. This repository contains the **Phase 0 + Phase 1 + Phase 2 + Phase 3 vertical
-slice**: a working, fully‑tested core (64 tests) with an **interactive Next.js web app wired to
-the gateway**, all runnable without any external cloud services.
+**remembers your progress** with spaced‑repetition revision, per‑topic mastery, analytics,
+and voice I/O, **imports more source types (website / YouTube / audio / Google Docs), teaches
+with a multi‑agent team, runs Free/Scholar/Pro plans with usage metering, and ships
+production‑readiness — accounts (login), per‑user privacy, enforceable usage limits, and a
+`/metrics` health endpoint**. This repository contains the **Phase 0 → Phase 5 vertical slice**: a
+working, fully‑tested core (111 tests) with an **interactive, responsive Next.js web app wired to the
+gateway**, all runnable without any external cloud services.
 
-> 🟢 **Non‑developer note:** "Phase 0 through Phase 3" means *the foundation, grounded Q&A +
-> verified solving, the teaching/quiz/paper layer, and the memory/revision/analytics/voice layer*.
-> The website is now a working app (not a mockup). Phase 4 (multi‑agent teaching, mobile,
-> scaling) is planned but not built yet. See [11-current-status.md](11-current-status.md).
+> 🟢 **Non‑developer note:** "Phase 0 through Phase 5" means *the foundation, grounded Q&A +
+> verified solving, the teaching/quiz/paper layer, the memory/revision/analytics/voice layer, the
+> connectors/multi‑agent/pricing layer, and the production‑readiness layer (login, privacy, usage
+> limits, health metrics)*. The website is a working, responsive app (not a mockup). Remaining later
+> work: native mobile, horizontal‑scaling infra, and social login. See
+> [11-current-status.md](11-current-status.md).

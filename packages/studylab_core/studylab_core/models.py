@@ -8,14 +8,27 @@ from typing import Any, Literal
 ArtifactType = Literal["summary_notes", "study_guide", "planner", "timetable", "revision_cards"]
 GroundingState = Literal["from_sources", "general_knowledge", "insufficient_source_support"]
 VerifyMethod = Literal["code_exec", "symbolic", "formula", "self_consistency", "cross_model", "unverified"]
+ConnectorType = Literal["website", "youtube", "audio", "google_doc", "google_slides"]
 
 QuestionType = Literal["mcq", "true_false", "short_answer"]
 AttemptSourceType = Literal["quiz", "paper"]
 Difficulty = Literal["easy", "medium", "hard"]
+PlanTier = Literal["free", "scholar", "pro"]
+MeteredAction = Literal["ask", "solve", "quiz", "paper", "artifact", "source_import", "teaching"]
 
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+@dataclass
+class User:
+    id: str
+    email: str
+    password_hash: str
+    subject_domain: str = "ai_ds"  # ai_ds, analytics, finance
+    prefs: dict[str, Any] = field(default_factory=dict)
+    created_at: str = field(default_factory=utc_now)
 
 
 @dataclass
@@ -55,6 +68,19 @@ class SourceGuide:
     summary: str
     key_concepts: list[str]
     suggested_questions: list[str]
+
+
+@dataclass
+class SourceImport:
+    id: str
+    notebook_id: str
+    source_id: str
+    connector_type: ConnectorType
+    title: str
+    status: str
+    metadata: dict[str, Any]
+    warnings: list[str]
+    created_at: str = field(default_factory=utc_now)
 
 
 @dataclass
@@ -137,6 +163,27 @@ class WhiteboardSession:
     notebook_id: str
     current_concept_idx: int
     concepts: list[WhiteboardConcept]
+    completed: bool = False
+
+
+@dataclass
+class AgentTurn:
+    agent_id: str
+    role: str
+    concept_index: int
+    title: str
+    content: str
+    citations: list[Citation]
+    confidence: float
+
+
+@dataclass
+class MultiAgentTeachingSession:
+    id: str
+    notebook_id: str
+    current_concept_idx: int
+    concepts: list[WhiteboardConcept]
+    agent_turns: list[AgentTurn]
     completed: bool = False
 
 
@@ -275,3 +322,44 @@ class VoiceResult:
     format: str = ""
     audio_base64: str = ""
     error: str = ""
+
+
+# ── Phase 4: Pricing & economics, connectors, multi-agent teaching ────────
+
+@dataclass
+class Plan:
+    """A purchasable plan tier with deterministic monthly action quotas.
+
+    A quota of ``None`` means unlimited. Prices are stored in integer cents to
+    avoid floating-point money bugs.
+    """
+
+    tier: PlanTier
+    name: str
+    price_cents: int
+    currency: str
+    quotas: dict[str, int | None]
+    features: list[str]
+
+
+@dataclass
+class Subscription:
+    id: str
+    user_id: str
+    tier: PlanTier
+    status: str  # active, canceled, past_due
+    billing_period: str  # YYYY-MM, the period usage is metered against
+    provider: str  # mock, stripe
+    external_id: str | None = None
+    created_at: str = field(default_factory=utc_now)
+    updated_at: str = field(default_factory=utc_now)
+
+
+@dataclass
+class UsageRecord:
+    id: str
+    user_id: str
+    action: MeteredAction
+    billing_period: str  # YYYY-MM
+    quantity: int = 1
+    created_at: str = field(default_factory=utc_now)

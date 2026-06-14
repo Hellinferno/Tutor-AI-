@@ -19,8 +19,13 @@ from .models import (
     Source,
     SourceChunk,
     SourceGuide,
+    SourceImport,
     StudentProfile,
+    Subscription,
     TopicMastery,
+    MultiAgentTeachingSession,
+    UsageRecord,
+    User,
     WhiteboardSession,
 )
 
@@ -29,6 +34,7 @@ class InMemoryStudyLabStore:
     """Local development store used before Postgres, Redis, and Qdrant are connected."""
 
     def __init__(self) -> None:
+        self.users: dict[str, User] = {}
         self.notebooks: dict[str, Notebook] = {}
         self.sources: dict[str, Source] = {}
         self.chunks: dict[str, SourceChunk] = {}
@@ -36,9 +42,11 @@ class InMemoryStudyLabStore:
         self.solutions: dict[str, Solution] = {}
         self.solution_by_hash: dict[str, str] = {}
         self.artifacts: dict[str, Artifact] = {}
+        self.source_imports: dict[str, SourceImport] = {}
 
         # Phase 2 stores
         self.whiteboard_sessions: dict[str, WhiteboardSession] = {}
+        self.multi_agent_teaching_sessions: dict[str, MultiAgentTeachingSession] = {}
         self.quizzes: dict[str, Quiz] = {}
         self.quiz_questions: dict[str, QuizQuestion] = {}
         self.question_papers: dict[str, QuestionPaper] = {}
@@ -52,8 +60,30 @@ class InMemoryStudyLabStore:
         self.student_profiles: dict[str, StudentProfile] = {}
         self.topic_masteries: dict[str, TopicMastery] = {}
 
+        # Phase 4 stores (pricing & economics)
+        self.subscriptions: dict[str, Subscription] = {}
+        self.usage_records: dict[str, UsageRecord] = {}
+
     def next_id(self, prefix: str) -> str:
         return f"{prefix}_{uuid4().hex[:12]}"
+
+    # ── Phase 5: Users & auth ────────────────────────────────────────────
+
+    def add_user(self, user: User) -> User:
+        self.users[user.id] = user
+        return user
+
+    def require_user(self, user_id: str) -> User:
+        try:
+            return self.users[user_id]
+        except KeyError as exc:
+            raise KeyError(f"User not found: {user_id}") from exc
+
+    def get_user_by_email(self, email: str) -> User | None:
+        for user in self.users.values():
+            if user.email == email:
+                return user
+        return None
 
     def add_notebook(self, title: str, user_id: str = "demo-user") -> Notebook:
         notebook = Notebook(id=self.next_id("notebook"), title=title, user_id=user_id)
@@ -97,6 +127,16 @@ class InMemoryStudyLabStore:
     def set_guide(self, guide: SourceGuide) -> SourceGuide:
         self.guides[guide.source_id] = guide
         return guide
+
+    def add_source_import(self, source_import: SourceImport) -> SourceImport:
+        self.source_imports[source_import.id] = source_import
+        return source_import
+
+    def require_source_import(self, import_id: str) -> SourceImport:
+        try:
+            return self.source_imports[import_id]
+        except KeyError as exc:
+            raise KeyError(f"Source import not found: {import_id}") from exc
 
     def add_solution(self, solution: Solution) -> Solution:
         self.solutions[solution.id] = solution
@@ -149,6 +189,20 @@ class InMemoryStudyLabStore:
     def add_whiteboard_session(self, session: WhiteboardSession) -> WhiteboardSession:
         self.whiteboard_sessions[session.id] = session
         return session
+
+    def add_multi_agent_teaching_session(self, session: MultiAgentTeachingSession) -> MultiAgentTeachingSession:
+        self.multi_agent_teaching_sessions[session.id] = session
+        return session
+
+    def save_multi_agent_teaching_session(self, session: MultiAgentTeachingSession) -> MultiAgentTeachingSession:
+        self.multi_agent_teaching_sessions[session.id] = session
+        return session
+
+    def require_multi_agent_teaching_session(self, session_id: str) -> MultiAgentTeachingSession:
+        try:
+            return self.multi_agent_teaching_sessions[session_id]
+        except KeyError as exc:
+            raise KeyError(f"Multi-agent teaching session not found: {session_id}") from exc
 
     def require_whiteboard_session(self, session_id: str) -> WhiteboardSession:
         try:
@@ -280,6 +334,32 @@ class InMemoryStudyLabStore:
         ids = [m.id for m in self.topic_masteries.values() if m.student_profile_id == profile_id]
         for mid in ids:
             del self.topic_masteries[mid]
+
+    # ── Phase 4: Pricing & economics ─────────────────────────────────────
+
+    def add_subscription(self, subscription: Subscription) -> Subscription:
+        self.subscriptions[subscription.id] = subscription
+        return subscription
+
+    def save_subscription(self, subscription: Subscription) -> Subscription:
+        self.subscriptions[subscription.id] = subscription
+        return subscription
+
+    def subscription_for(self, user_id: str) -> Subscription | None:
+        matching = [s for s in self.subscriptions.values() if s.user_id == user_id]
+        if not matching:
+            return None
+        return sorted(matching, key=lambda s: s.created_at)[-1]
+
+    def add_usage_record(self, record: UsageRecord) -> UsageRecord:
+        self.usage_records[record.id] = record
+        return record
+
+    def usage_for_period(self, user_id: str, billing_period: str) -> list[UsageRecord]:
+        return [
+            r for r in self.usage_records.values()
+            if r.user_id == user_id and r.billing_period == billing_period
+        ]
 
     def to_plain(self, value: Any) -> Any:
         if is_dataclass(value):

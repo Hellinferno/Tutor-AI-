@@ -1,14 +1,19 @@
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from .analytics import AnalyticsEngine
 from .artifacts import ArtifactGenerator
+from .auth import AuthEngine
+from .connectors import SourceConnectorEngine
 from .eval import EvalEngine
-from .models import ArtifactType, AttemptSourceType, Session
+from .metrics import MetricsCollector
+from .models import ArtifactType, AttemptSourceType, ConnectorType, MeteredAction, PlanTier, Session
 from .notion import NotionExporter
 from .ocr import extract_text_from_image_payload
 from .paper import PaperEngine
+from .pricing import BillingProvider, PricingEngine
 from .quiz import QuizEngine
 from .rag import RagEngine
 from .revision import RepetitionEngine
@@ -20,7 +25,12 @@ from .voice import VoiceProvider, make_voice_provider
 
 
 class StudyLabAPI:
-    def __init__(self, store: InMemoryStudyLabStore | None = None, voice: VoiceProvider | None = None) -> None:
+    def __init__(
+        self,
+        store: InMemoryStudyLabStore | None = None,
+        voice: VoiceProvider | None = None,
+        billing: BillingProvider | None = None,
+    ) -> None:
         self.store = store or InMemoryStudyLabStore()
         self.rag = RagEngine(self.store)
         self.solver = SolverEngine(self.store, self.rag)
@@ -34,6 +44,12 @@ class StudyLabAPI:
         self.student = StudentModel(self.store)
         self.analytics = AnalyticsEngine(self.store)
         self.voice = voice or make_voice_provider()
+        # Phase 4 engines
+        self.connectors = SourceConnectorEngine(self.store, self.rag)
+        self.pricing = PricingEngine(self.store, billing=billing)
+        # Phase 5 engines (production readiness: auth + observability)
+        self.auth = AuthEngine(self.store)
+        self.metrics = MetricsCollector()
 
     def create_notebook(self, title: str, user_id: str = "demo-user") -> dict[str, Any]:
         return self.store.to_plain(self.rag.create_notebook(title=title, user_id=user_id))
@@ -48,7 +64,12 @@ class StudyLabAPI:
         return {"source": self.store.to_plain(source), "source_guide": self.store.to_plain(guide)}
 
     def ask_notebook(self, notebook_id: str, query: str) -> dict[str, Any]:
-        return self.store.to_plain(self.rag.ask(notebook_id=notebook_id, query=query))
+        result = self.store.to_plain(self.rag.ask(notebook_id=notebook_id, query=query))
+        self.metrics.record_ask(
+            grounded=result.get("grounding") == "from_sources",
+            citation_count=len(result.get("citations") or []),
+        )
+        return result
 
     def solve(
         self,
@@ -58,7 +79,13 @@ class StudyLabAPI:
         notebook_id: str | None = None,
     ) -> dict[str, Any]:
         question = extract_text_from_image_payload(content) if input_type == "image" else content
-        return self.store.to_plain(self.solver.solve(question=question, subject=subject, notebook_id=notebook_id))
+        result = self.store.to_plain(self.solver.solve(question=question, subject=subject, notebook_id=notebook_id))
+        self.metrics.record_solve(
+            verified=bool(result.get("verified")),
+            from_cache=bool(result.get("from_cache")),
+            latency_ms=int(result.get("latency_ms") or 0),
+        )
+        return result
 
     def reveal(self, solution_id: str, step_idx: int) -> dict[str, Any]:
         return self.solver.reveal_step(solution_id=solution_id, step_idx=step_idx)
@@ -84,6 +111,7 @@ class StudyLabAPI:
             parent_page_id=parent_page_id,
             data_source_id=data_source_id,
         )
+        self.metrics.record_notion_export(ok=bool(getattr(result, "connected", False)))
         return self.store.to_plain(result)
 
     # ── Phase 2: Teaching ─────────────────────────────────────────────────
@@ -262,3 +290,124 @@ class StudyLabAPI:
 
     def text_to_speech(self, text: str, format: str = "wav") -> dict[str, Any]:
         return self.store.to_plain(self.voice.tts(text=text, format=format))
+
+    # ── Phase 4: Multi-agent teaching ─────────────────────────────────────
+
+    def start_multi_agent_teaching(self, notebook_id: str) -> dict[str, Any]:
+        return self.store.to_plain(self.teaching.start_multi_agent_session(notebook_id))
+
+    def get_multi_agent_session(self, session_id: str) -> dict[str, Any]:
+        return self.store.to_plain(self.teaching.get_multi_agent_session(session_id))
+
+    def multi_agent_next(self, session_id: str) -> dict[str, Any]:
+        return self.store.to_plain(self.teaching.multi_agent_next(session_id))
+
+    def multi_agent_prev(self, session_id: str) -> dict[str, Any]:
+        return self.store.to_plain(self.teaching.multi_agent_prev(session_id))
+
+    # ── Phase 4: Source connectors ────────────────────────────────────────
+
+    def import_source(
+        self,
+        notebook_id: str,
+        connector_type: ConnectorType,
+        title: str,
+        payload: dict[str, Any],
+        user_id: str = "demo-user",
+    ) -> dict[str, Any]:
+        self._guard(user_id, "source_import")
+        source, guide, record = self.connectors.import_source(
+            notebook_id=notebook_id,
+            connector_type=connector_type,
+            title=title,
+            payload=payload,
+        )
+        return {
+            "source": source,
+            "source_guide": self.store.to_plain(guide),
+            "import": self.store.to_plain(record),
+        }
+
+    def list_source_imports(self, notebook_id: str) -> dict[str, Any]:
+        imports = [
+            self.store.to_plain(record)
+            for record in self.store.source_imports.values()
+            if record.notebook_id == notebook_id
+        ]
+        return {"imports": imports, "supported_types": sorted(self.connectors.supported_types)}
+
+    # ── Phase 4: Pricing & economics ──────────────────────────────────────
+
+    def list_plans(self) -> dict[str, Any]:
+        return {"plans": [self.store.to_plain(plan) for plan in self.pricing.list_plans()]}
+
+    def get_subscription(self, user_id: str = "demo-user") -> dict[str, Any]:
+        return self.store.to_plain(self.pricing.get_subscription(user_id))
+
+    def set_plan(self, user_id: str, tier: PlanTier) -> dict[str, Any]:
+        result = self.pricing.set_plan(user_id, tier)
+        return {
+            "subscription": self.store.to_plain(result["subscription"]),
+            "checkout": result["checkout"],
+            "plan": self.store.to_plain(result["plan"]),
+        }
+
+    def record_usage(self, user_id: str, action: MeteredAction, quantity: int = 1) -> dict[str, Any]:
+        return self.store.to_plain(self.pricing.meter(user_id, action, quantity))
+
+    def check_quota(self, user_id: str, action: MeteredAction) -> dict[str, Any]:
+        return self.pricing.check_quota(user_id, action)
+
+    def usage_summary(self, user_id: str = "demo-user") -> dict[str, Any]:
+        return self.pricing.usage_summary(user_id)
+
+    def enforce_quota(self, user_id: str, action: MeteredAction) -> dict[str, Any]:
+        """Explicitly enforce a quota for a metered action (raises QuotaExceededError)."""
+        record = self.pricing.enforce(user_id, action)
+        return {"recorded": self.store.to_plain(record), "quota": self.pricing.check_quota(user_id, action)}
+
+    def _guard(self, user_id: str, action: MeteredAction) -> None:
+        """Meter a metered action — enforcing the quota when STUDYLAB_ENFORCE_QUOTAS is set.
+
+        Default (flag unset): best-effort metering that never blocks a product action,
+        preserving the offline/test experience. Flag set: raises QuotaExceededError when
+        the plan quota is exhausted, which the gateway maps to HTTP 402.
+        """
+        if _truthy(os.getenv("STUDYLAB_ENFORCE_QUOTAS")):
+            self.pricing.enforce(user_id, action)
+            return
+        try:
+            self.pricing.meter(user_id, action)
+        except Exception:
+            pass
+
+    # ── Phase 5: Authentication & authorization ───────────────────────────
+
+    def register_user(self, email: str, password: str, subject_domain: str = "ai_ds") -> dict[str, Any]:
+        user = self.auth.register(email=email, password=password, subject_domain=subject_domain)
+        return {"user": self.auth.public_user(user), "token": self.auth.issue_token(user), "token_type": "Bearer"}
+
+    def login(self, email: str, password: str) -> dict[str, Any]:
+        return self.auth.login(email=email, password=password)
+
+    def current_user(self, token: str) -> dict[str, Any]:
+        return self.auth.public_user(self.auth.user_from_token(token))
+
+    def user_id_from_token(self, token: str) -> str:
+        return self.auth.user_from_token(token).id
+
+    def authorize_notebook(self, user_id: str, notebook_id: str) -> bool:
+        """Return True if the user owns the notebook; raise PermissionError otherwise."""
+        notebook = self.store.require_notebook(notebook_id)
+        if notebook.user_id != user_id:
+            raise PermissionError("you do not have access to this notebook")
+        return True
+
+    # ── Phase 5: Observability ────────────────────────────────────────────
+
+    def metrics_snapshot(self) -> dict[str, Any]:
+        return self.metrics.snapshot()
+
+
+def _truthy(value: str | None) -> bool:
+    return (value or "").strip().lower() in {"1", "true", "yes", "on"}

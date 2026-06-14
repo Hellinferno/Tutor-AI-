@@ -28,6 +28,8 @@ users
          ├─< sessions                                  (Phase 3)
          ├─< revision_cards                            (Phase 3)
          ├─< whiteboard_sessions                       (Phase 2)
+         ├─< multi_agent_teaching_sessions             (Phase 4)
+         ├─< source_imports >── sources                (Phase 4)
          ├─< quizzes ──< quiz_questions                (Phase 2)
          └─< question_papers ──< paper_sections        (Phase 2)
 
@@ -36,6 +38,9 @@ attempts >── quiz | paper      (source_id + source_type)   (Phase 2)
 answer_keys >── quiz | paper   (source_id + source_type)    (Phase 2)
 
 (user_id, notebook_id) ─1 student_profiles ──< topic_masteries   (Phase 3)
+
+users ──< subscriptions        (latest row = current plan)   (Phase 4)
+users ──< usage_records        (one per metered action)       (Phase 4)
 ```
 `└─<` = one‑to‑many, `└─1` = one‑to‑one. (`users` and `notebooks` may be null on some rows in the
 current local flow, which defaults the owner to `demo-user`.)
@@ -134,6 +139,52 @@ A study session log: `id`, `user_id`, `notebook_id`, `kind` (`study|quiz|paper|r
 
 ---
 
+## Phase 4 tables (connectors, multi-agent teaching, pricing)
+
+Added in
+[004_phase4_connectors_agents_billing.sql](../packages/db/migrations/004_phase4_connectors_agents_billing.sql)
+(Postgres) and mirrored in the SQLite store.
+
+### `source_imports`
+Connector provenance for an imported source: `id`, `notebook_id`, `source_id` (the real row in
+`sources`), `connector_type` (`website|youtube|audio|google_doc|google_slides`), `title`, `status`,
+`metadata` (JSON — url/video_id/document_id/language/etc.), `warnings` (JSON), `created_at`. The
+imported text itself lives in `sources`/`source_chunks` exactly like an upload, so retrieval and
+citations are identical.
+
+### `multi_agent_teaching_sessions`
+A multi‑agent walk‑through: `id`, `notebook_id`, `current_concept_idx`, `concepts` (JSON, same shape
+as a whiteboard session), `agent_turns` (JSON — each turn has `agent_id`, `role`, `concept_index`,
+`title`, `content`, `citations`, `confidence`), `completed`. Three turns per concept
+(`concept_explainer`, `grounding_verifier`, `practice_coach`).
+
+### `subscriptions`
+One current plan per user (latest row wins): `id`, `user_id`, `tier` (`free|scholar|pro`), `status`
+(`active|past_due|canceled`), `billing_period` (`YYYY-MM`), `provider` (`mock|stripe`),
+`external_id` (provider id), `created_at`, `updated_at`.
+
+### `usage_records`
+One row per metered action: `id`, `user_id`, `action`
+(`ask|solve|quiz|paper|artifact|source_import|teaching`), `billing_period` (`YYYY-MM`), `quantity`,
+`created_at`. Quota checks sum these against the plan's quota for the period. *(Plans/quotas live in
+the `PLAN_CATALOG` in [pricing.py](../packages/studylab_core/studylab_core/pricing.py), not a table.)*
+
+---
+
+## Phase 5 tables (authentication)
+
+Added in [005_phase5_auth_observability.sql](../packages/db/migrations/005_phase5_auth_observability.sql)
+(Postgres) and mirrored in the SQLite store. The `users` table now carries credentials so the local
+store backs first‑party auth (it previously existed only as the spec's Postgres target).
+
+### `users`
+`id`, `email` (unique), `password_hash` (PBKDF2‑HMAC‑SHA256, stored as
+`pbkdf2_sha256$iterations$salt$hash` — never the plaintext), `subject_domain` (`ai_ds|analytics|finance`),
+`prefs` (JSON), `created_at`. JWTs are **stateless** (HS256, signed with `STUDYLAB_JWT_SECRET`), so
+there is no sessions/tokens table; observability metrics are in‑process counters, not persisted.
+
+---
+
 ## Enumerated types
 
 | Type | Values |
@@ -147,6 +198,11 @@ A study session log: `id`, `user_id`, `notebook_id`, `kind` (`study|quiz|paper|r
 | `difficulty` (Phase 2) | `easy`, `medium`, `hard` |
 | `revision_card.state` (Phase 3) | `queued`, `done`, `lapsed` |
 | `session.kind` (Phase 3) | `study`, `quiz`, `paper`, `revision` |
+| `connector_type` (Phase 4) | `website`, `youtube`, `audio`, `google_doc`, `google_slides` |
+| `plan_tier` (Phase 4) | `free`, `scholar`, `pro` |
+| `metered_action` (Phase 4) | `ask`, `solve`, `quiz`, `paper`, `artifact`, `source_import`, `teaching` |
+| `subscription.status` (Phase 4) | `active`, `past_due`, `canceled` |
+| `subject_domain` (Phase 5, user) | `ai_ds`, `analytics`, `finance` |
 
 ---
 

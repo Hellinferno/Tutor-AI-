@@ -3,23 +3,37 @@ import type {
   Artifact,
   AskResponse,
   Attempt,
+  AuthResult,
+  AuthUser,
   CardStats,
+  ConnectorType,
   EvalReport,
+  ImportList,
+  ImportResult,
   KnowledgeState,
+  MetricsSnapshot,
+  MultiAgentTeachingSession,
   Notebook,
+  Plan,
+  PlanTier,
   QuestionPaper,
   Quiz,
   RevisionCard,
   SolveResponse,
   SolveStep,
+  Subscription,
+  SubscribeResult,
   TrendPoint,
   UploadResult,
+  UsageSummary,
   UserSummary,
   VoiceResult,
   WhiteboardSession,
 } from "./types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000/v1";
+// Some Phase 5 endpoints (metrics, health) live at the server root, not under /v1.
+const SERVER_BASE = API_BASE.replace(/\/v1\/?$/, "");
 
 export class ApiError extends Error {
   status: number;
@@ -28,6 +42,29 @@ export class ApiError extends Error {
     this.name = "ApiError";
     this.status = status;
   }
+}
+
+// ── Bearer token handling (Phase 5) ──
+const TOKEN_KEY = "studylab_token";
+let authToken: string | null = null;
+
+export function setAuthToken(token: string | null): void {
+  authToken = token;
+  if (typeof window !== "undefined") {
+    if (token) window.localStorage.setItem(TOKEN_KEY, token);
+    else window.localStorage.removeItem(TOKEN_KEY);
+  }
+}
+
+export function loadAuthToken(): string | null {
+  if (authToken) return authToken;
+  if (typeof window !== "undefined") authToken = window.localStorage.getItem(TOKEN_KEY);
+  return authToken;
+}
+
+function authHeaders(base: Record<string, string> = {}): Record<string, string> {
+  const token = loadAuthToken();
+  return token ? { ...base, Authorization: `Bearer ${token}` } : base;
 }
 
 async function readError(response: Response): Promise<string> {
@@ -42,7 +79,7 @@ async function readError(response: Response): Promise<string> {
 async function post<T>(path: string, body: unknown): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(body),
   });
   if (!response.ok) throw new ApiError(response.status, await readError(response));
@@ -50,7 +87,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 }
 
 async function get<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`);
+  const response = await fetch(`${API_BASE}${path}`, { headers: authHeaders() });
   if (!response.ok) throw new ApiError(response.status, await readError(response));
   return response.json() as Promise<T>;
 }
@@ -183,4 +220,72 @@ export function textToSpeech(text: string, format = "wav"): Promise<VoiceResult>
 
 export function speechToText(audioBase64: string, format = "wav"): Promise<VoiceResult> {
   return post<VoiceResult>("/voice/stt", { audio_base64: audioBase64, format });
+}
+
+// ── Phase 4: Source connectors ──
+export function importSource(
+  notebookId: string,
+  connectorType: ConnectorType,
+  title: string,
+  payload: Record<string, unknown>,
+): Promise<ImportResult> {
+  return post<ImportResult>(`/notebooks/${notebookId}/sources/import`, {
+    connector_type: connectorType,
+    title,
+    payload,
+  });
+}
+
+export function listImports(notebookId: string): Promise<ImportList> {
+  return get<ImportList>(`/notebooks/${notebookId}/imports`);
+}
+
+// ── Phase 4: Multi-agent teaching ──
+export function startAgentTeaching(notebookId: string): Promise<MultiAgentTeachingSession> {
+  return post<MultiAgentTeachingSession>(`/notebooks/${notebookId}/agent-teaching/start`, {});
+}
+
+export function agentTeachingNext(sessionId: string): Promise<MultiAgentTeachingSession> {
+  return post<MultiAgentTeachingSession>(`/agent-teaching/${sessionId}/next`, {});
+}
+
+export function agentTeachingPrev(sessionId: string): Promise<MultiAgentTeachingSession> {
+  return post<MultiAgentTeachingSession>(`/agent-teaching/${sessionId}/prev`, {});
+}
+
+// ── Phase 4: Billing & economics ──
+export function listPlans(): Promise<{ plans: Plan[] }> {
+  return get<{ plans: Plan[] }>("/billing/plans");
+}
+
+export function getSubscription(userId = "demo-user"): Promise<Subscription> {
+  return get<Subscription>(`/billing/subscription/${encodeURIComponent(userId)}`);
+}
+
+export function getUsageSummary(userId = "demo-user"): Promise<UsageSummary> {
+  return get<UsageSummary>(`/billing/usage/${encodeURIComponent(userId)}`);
+}
+
+export function subscribe(userId: string, tier: PlanTier): Promise<SubscribeResult> {
+  return post<SubscribeResult>(`/billing/${encodeURIComponent(userId)}/subscribe`, { tier });
+}
+
+// ── Phase 5: Auth & observability ──
+export function registerUser(email: string, password: string, subjectDomain = "ai_ds"): Promise<AuthResult> {
+  return post<AuthResult>("/auth/register", { email, password, subject_domain: subjectDomain });
+}
+
+export function login(email: string, password: string): Promise<AuthResult> {
+  return post<AuthResult>("/auth/login", { email, password });
+}
+
+export function getMe(): Promise<AuthUser> {
+  return get<AuthUser>("/auth/me");
+}
+
+export function getMetrics(): Promise<MetricsSnapshot> {
+  return fetch(`${SERVER_BASE}/metrics`, { headers: authHeaders() }).then(async (r) => {
+    if (!r.ok) throw new ApiError(r.status, await readError(r));
+    return r.json() as Promise<MetricsSnapshot>;
+  });
 }

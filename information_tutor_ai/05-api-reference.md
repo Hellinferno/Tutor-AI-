@@ -27,6 +27,11 @@ machine‑readable spec is [docs/openapi.phase1.yml](../docs/openapi.phase1.yml)
 | **Student** (mastery / weak-topics) | ✅ | ✅ | — |
 | **Analytics** (trends / summary) | ✅ | ✅ | — |
 | **Voice** (stt / tts) | ✅ | ✅ | — |
+| **Connectors** (import / list imports) | ✅ | ✅ | — |
+| **Multi-agent teaching** (start / get / next / prev) | ✅ | ✅ | — |
+| **Billing** (plans / subscription / subscribe / usage) | ✅ | ✅ | — |
+| **Auth** (register / login / me) | ✅ | ✅ (register/login) | — |
+| **Observability** (`/metrics`) | ✅ | ✅ | — |
 
 The **gateway** exposes the full surface in‑process. `rag` and `solver` expose their slices.
 
@@ -232,6 +237,117 @@ Speech↔text via the env‑gated provider (mock unless `GEMINI_API_KEY` is set)
 // stt request: { "audio_base64": "…", "format": "wav" }  → { ok, text, format }
 // tts request: { "text": "…", "format": "wav" }           → { ok, audio_base64, format }
 ```
+
+---
+
+## Phase 4 endpoints — connectors, multi-agent teaching, pricing
+
+New source types, a second teaching mode, and the economics layer. Imported content is chunked,
+guided, and cited **identically** to an upload; multi-agent turns are derived deterministically
+from the same source guides; plans/quotas/usage are real and tested (only the card charge is gated
+behind `STRIPE_API_KEY`).
+
+### `POST /v1/notebooks/{id}/sources/import`
+Import a source through a connector. The core does **not** fetch remote content — a connector
+worker supplies extracted text / transcript / exported text in `payload`.
+```json
+// request
+{ "connector_type": "website" | "youtube" | "audio" | "google_doc" | "google_slides",
+  "title": "GD article",
+  "payload": { "url": "https://…", "extracted_text": "…" },   // youtube: transcript[], audio: transcript, docs/slides: exported_text; website also accepts html
+  "user_id": "demo-user" }
+// response
+{ "source": { id, title, kind }, "source_guide": { … },
+  "import": { id, connector_type, status, metadata, warnings[] } }
+```
+Validation errors (unsupported type, missing url, empty text, non‑absolute url) return `400`.
+
+### `GET /v1/notebooks/{id}/imports`
+List the connector imports for a notebook → `{ "imports": [ … ], "supported_types": [ … ] }`.
+
+### `POST /v1/notebooks/{id}/agent-teaching/start`
+Start a multi‑agent teaching session. Each concept gets three cited turns: an **explainer**, a
+**grounding‑verifier** (confidence reflects citation coverage), and a **practice‑coach**.
+```json
+// response
+{ "id": "agent_session_…", "notebook_id": "…", "current_concept_idx": 0, "completed": false,
+  "concepts": [ { name, explanation, citations[], whiteboard[] } ],
+  "agent_turns": [ { agent_id, role, concept_index, title, content, citations[], confidence } ] }
+```
+
+### `GET /v1/agent-teaching/{session_id}`
+Fetch a session. `POST /v1/agent-teaching/{session_id}/next` and `…/prev` move the cursor (and set
+`completed` at the end). All return the full session object.
+
+### `GET /v1/billing/plans`
+List the plan catalog → `{ "plans": [ { tier, name, price_cents, currency, quotas, features[] } ] }`
+for `free`, `scholar`, `pro`.
+
+### `GET /v1/billing/subscription/{user_id}`
+Return the user's subscription (creates a default Free one on first read) →
+`{ id, user_id, tier, status, billing_period, provider, external_id }`.
+
+### `POST /v1/billing/{user_id}/subscribe`
+Change plan via the billing provider.
+```json
+// request:  { "tier": "scholar" }
+// response: { "subscription": { … }, "plan": { … },
+//             "checkout": { provider, status, checkout_url, external_id, message } }
+```
+With `STRIPE_API_KEY` set, `checkout_url` is a hosted Checkout Session and the subscription stays
+`past_due` until a webhook confirms; in mock mode it activates immediately.
+
+### `POST /v1/billing/{user_id}/usage`  ·  `GET /v1/billing/usage/{user_id}`
+Record a metered action → the usage record; or read the period summary →
+`{ user_id, tier, status, billing_period, provider, price_cents, currency,
+   actions: [ { action, used, limit, remaining, allowed } ] }`.
+Metered actions: `ask`, `solve`, `quiz`, `paper`, `artifact`, `source_import`, `teaching`.
+
+---
+
+## Phase 5 endpoints — auth & observability
+
+First‑party email/password auth issues a stateless **HS256 JWT** (signed with `STUDYLAB_JWT_SECRET`;
+passwords stored with PBKDF2‑HMAC‑SHA256). Auth endpoints always work; the gateway only *requires* a
+token when `STUDYLAB_REQUIRE_AUTH=true` (everything except `/health`, `/metrics`, `/v1/auth/register`,
+`/v1/auth/login` then needs `Authorization: Bearer <token>`).
+
+### `POST /v1/auth/register`
+Create an account and return a token.
+```json
+// request:  { "email": "dia@example.com", "password": "min-8-chars", "subject_domain": "ai_ds" }
+// response: { "user": { id, email, subject_domain, prefs, created_at }, "token": "…", "token_type": "Bearer" }
+```
+The returned `user` never includes the password hash. Duplicate email, invalid email, or a
+password under 8 characters return `401`.
+
+### `POST /v1/auth/login`
+Authenticate and return a token.
+```json
+// request:  { "email": "dia@example.com", "password": "…" }
+// response: { "user": { … }, "token": "…", "token_type": "Bearer" }
+```
+Invalid credentials return `401`.
+
+### `GET /v1/auth/me`
+Return the user for the supplied `Authorization: Bearer <token>` (a malformed/expired/tampered token
+returns `401`).
+
+### `GET /metrics`  (also `GET /v1/admin/metrics`)
+Observability snapshot — the production signals from
+[Instructions/11](../Instructions/11-environment-and-devops.md):
+```json
+{
+  "asks": 12, "weak_retrieval_refusal_rate": 0.17, "citation_coverage_rate": 0.83,
+  "solves": 9, "verified_rate": 1.0, "false_verified_rate": 0.0, "cache_hit_rate": 0.22,
+  "solve_latency_ms": { "p50": 1, "p90": 3, "p99": 8 },
+  "notion_export_success_rate": 1.0
+}
+```
+
+> **Quota enforcement:** when `STUDYLAB_ENFORCE_QUOTAS=true`, a metered action that exceeds the plan
+> quota returns **`402` `quota_exceeded`** with a `quota` object (`action`, `used`, `limit`,
+> `remaining`). With the flag off (default) usage is metered but never blocked.
 
 ---
 

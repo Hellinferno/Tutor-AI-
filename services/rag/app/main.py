@@ -90,6 +90,27 @@ ROUTES = [
     # Phase 3: Voice
     Route("POST", "/v1/voice/stt", lambda p, b: api.speech_to_text(audio_base64=b["audio_base64"], format=b.get("format", "wav"))),
     Route("POST", "/v1/voice/tts", lambda p, b: api.text_to_speech(text=b["text"], format=b.get("format", "wav"))),
+    # Phase 4: Multi-agent teaching
+    Route("POST", "/v1/notebooks/{notebook_id}/agent-teaching/start", lambda p, b: api.start_multi_agent_teaching(notebook_id=p["notebook_id"])),
+    Route("GET", "/v1/agent-teaching/{session_id}", lambda p, b: api.get_multi_agent_session(session_id=p["session_id"])),
+    Route("POST", "/v1/agent-teaching/{session_id}/next", lambda p, b: api.multi_agent_next(session_id=p["session_id"])),
+    Route("POST", "/v1/agent-teaching/{session_id}/prev", lambda p, b: api.multi_agent_prev(session_id=p["session_id"])),
+    # Phase 4: Source connectors
+    Route(
+        "POST", "/v1/notebooks/{notebook_id}/sources/import",
+        lambda p, b: api.import_source(notebook_id=p["notebook_id"], connector_type=b["connector_type"], title=b.get("title", ""), payload=b.get("payload", {}), user_id=b.get("user_id", "demo-user")),
+    ),
+    Route("GET", "/v1/notebooks/{notebook_id}/imports", lambda p, b: api.list_source_imports(notebook_id=p["notebook_id"])),
+    # Phase 4: Billing & economics
+    Route("GET", "/v1/billing/plans", lambda p, b: api.list_plans()),
+    Route("GET", "/v1/billing/subscription/{user_id}", lambda p, b: api.get_subscription(user_id=p["user_id"])),
+    Route("GET", "/v1/billing/usage/{user_id}", lambda p, b: api.usage_summary(user_id=p["user_id"])),
+    Route("POST", "/v1/billing/{user_id}/subscribe", lambda p, b: api.set_plan(user_id=p["user_id"], tier=b["tier"])),
+    Route("POST", "/v1/billing/{user_id}/usage", lambda p, b: api.record_usage(user_id=p["user_id"], action=b["action"], quantity=b.get("quantity", 1))),
+    # Phase 5: Auth & observability
+    Route("POST", "/v1/auth/register", lambda p, b: api.register_user(email=b["email"], password=b["password"], subject_domain=b.get("subject_domain", "ai_ds"))),
+    Route("POST", "/v1/auth/login", lambda p, b: api.login(email=b["email"], password=b["password"])),
+    Route("GET", "/metrics", lambda p, b: api.metrics_snapshot()),
 ]
 
 
