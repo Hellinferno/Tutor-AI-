@@ -73,6 +73,10 @@ class InMemoryStudyLabStore:
         self.users[user.id] = user
         return user
 
+    def save_user(self, user: User) -> User:
+        self.users[user.id] = user
+        return user
+
     def require_user(self, user_id: str) -> User:
         try:
             return self.users[user_id]
@@ -84,6 +88,44 @@ class InMemoryStudyLabStore:
             if user.email == email:
                 return user
         return None
+
+    def delete_user(self, user_id: str) -> None:
+        """Delete a user and cascade-remove their owned data (account deletion)."""
+        notebook_ids = {nb.id for nb in self.notebooks.values() if nb.user_id == user_id}
+        source_ids = {s.id for s in self.sources.values() if s.notebook_id in notebook_ids}
+        profile_ids = {p.id for p in self.student_profiles.values() if p.user_id == user_id}
+        # Capture quiz/paper/attempt ids before dropping, so derived rows cascade too.
+        graded_ids = {q.id for q in self.quizzes.values() if q.notebook_id in notebook_ids}
+        graded_ids |= {p.id for p in self.question_papers.values() if p.notebook_id in notebook_ids}
+        attempt_ids = {a.id for a in self.attempts.values() if a.user_id == user_id}
+
+        def _drop(collection: dict, predicate) -> None:
+            for key in [k for k, v in collection.items() if predicate(v)]:
+                del collection[key]
+
+        # Notebook-scoped data
+        _drop(self.notebooks, lambda v: v.id in notebook_ids)
+        _drop(self.sources, lambda v: v.notebook_id in notebook_ids)
+        _drop(self.chunks, lambda v: v.notebook_id in notebook_ids)
+        _drop(self.guides, lambda v: v.source_id in source_ids)
+        _drop(self.artifacts, lambda v: v.notebook_id in notebook_ids)
+        _drop(self.whiteboard_sessions, lambda v: v.notebook_id in notebook_ids)
+        _drop(self.multi_agent_teaching_sessions, lambda v: v.notebook_id in notebook_ids)
+        _drop(self.quizzes, lambda v: v.notebook_id in notebook_ids)
+        _drop(self.question_papers, lambda v: v.notebook_id in notebook_ids)
+        _drop(self.source_imports, lambda v: v.notebook_id in notebook_ids)
+        # Derived grading data (keyed by quiz/paper or attempt)
+        _drop(self.answer_keys, lambda v: v.source_id in graded_ids)
+        _drop(self.eval_reports, lambda v: v.attempt_id in attempt_ids)
+        # User-scoped data
+        _drop(self.attempts, lambda v: v.user_id == user_id)
+        _drop(self.revision_cards, lambda v: v.user_id == user_id)
+        _drop(self.sessions, lambda v: v.user_id == user_id)
+        _drop(self.student_profiles, lambda v: v.user_id == user_id)
+        _drop(self.topic_masteries, lambda v: v.student_profile_id in profile_ids)
+        _drop(self.subscriptions, lambda v: v.user_id == user_id)
+        _drop(self.usage_records, lambda v: v.user_id == user_id)
+        self.users.pop(user_id, None)
 
     def add_notebook(self, title: str, user_id: str = "demo-user") -> Notebook:
         notebook = Notebook(id=self.next_id("notebook"), title=title, user_id=user_id)

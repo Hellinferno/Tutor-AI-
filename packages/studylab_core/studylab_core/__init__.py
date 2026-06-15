@@ -18,6 +18,7 @@ from .pricing import (
 )
 from .quiz import QuizEngine
 from .rag import RagEngine
+from .ratelimit import RateLimiter, RateLimitError, make_rate_limiter_from_env
 from .retrieval import HybridRetriever, QdrantHybridSearchAdapter
 from .revision import RepetitionEngine
 from .solver import SolverEngine
@@ -48,10 +49,13 @@ __all__ = [
     "PaperEngine",
     "PLAN_CATALOG",
     "PricingEngine",
+    "make_rate_limiter_from_env",
     "QdrantHybridSearchAdapter",
     "QuizEngine",
     "QuotaExceededError",
     "RagEngine",
+    "RateLimiter",
+    "RateLimitError",
     "RepetitionEngine",
     "SolverEngine",
     "SourceConnectorEngine",

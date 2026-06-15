@@ -28,7 +28,7 @@ From the repository root (`tutor AI/`):
 # Make the core importable (PowerShell)
 $env:PYTHONPATH = "packages/studylab_core"
 
-# Run the full test suite (111 tests)
+# Run the full test suite (134 tests)
 python -m unittest discover tests
 
 # Run the solver quality gate (must report false_verified_rate=0)
@@ -111,9 +111,15 @@ All documented in [.env.example](../.env.example). The ones that change behaviou
 | `GEMINI_API_KEY` | Set → real voice (STT/TTS) provider; unset → mock. |
 | `STRIPE_API_KEY` | Set → real Stripe Checkout billing; unset → mock billing (auto‑activates). |
 | `STRIPE_SUCCESS_URL` / `STRIPE_CANCEL_URL` | Redirect targets for the Stripe Checkout session. |
-| `STUDYLAB_JWT_SECRET` | HS256 signing secret for auth tokens (dev fallback if unset — set a strong value in prod). |
-| `STUDYLAB_REQUIRE_AUTH` | `true` → gateway requires a Bearer token on non‑public routes (default off). |
+| `STUDYLAB_JWT_SECRET` | HS256 signing secret for auth tokens. Required when auth is enforced (fail‑fast on the dev default). |
+| `STUDYLAB_REQUIRE_AUTH` | `true` → gateway requires a Bearer token + enforces per‑user ownership (default off). |
 | `STUDYLAB_ENFORCE_QUOTAS` | `true` → over‑quota metered actions return HTTP 402 (default off). |
+| `STUDYLAB_CORS_ORIGINS` | Allowed browser origin(s) for the API (default `*`). |
+| `STUDYLAB_RATE_LIMIT` | `"requests/seconds"` (e.g. `120/60`) → HTTP 429 when exceeded. Empty disables. |
+| `STUDYLAB_MAX_SOURCE_CHARS` | Max characters per uploaded/imported source (default 1,000,000). |
+| `STUDYLAB_AUTH_MOCK_EMAIL` | `true` → return reset tokens in the API response even with auth enforced (dev only). |
+| `STUDYLAB_DEV_INSECURE` | `true` → allow the dev JWT secret with auth enforced (dev only; never in prod). |
+| `RAG_BIND_HOST` | Bind host for the internal rag service (default loopback `127.0.0.1`). |
 
 Variables present for the **production target** but not yet the live path: `DATABASE_URL`
 (Postgres), `QDRANT_URL`/`QDRANT_COLLECTION`, `REDIS_URL`, `EMBEDDINGS_ENDPOINT`. See

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import binascii
 import hashlib
 import hmac
 import json
@@ -56,8 +57,38 @@ def verify_password(password: str, stored: str) -> bool:
 
 
 def make_auth_secret() -> str:
-    """Resolve the JWT signing secret from the environment, with a dev fallback."""
-    return os.getenv("STUDYLAB_JWT_SECRET") or _DEV_SECRET
+    """Resolve the JWT signing secret from the environment.
+
+    Production safety: when auth is being *enforced* (``STUDYLAB_REQUIRE_AUTH``), a real
+    ``STUDYLAB_JWT_SECRET`` is mandatory — we refuse to start on the public dev sentinel so
+    tokens can't be forged. With enforcement off (offline/demo/tests) the dev fallback is
+    allowed, unless ``STUDYLAB_DEV_INSECURE`` is explicitly set to keep it even with auth on.
+    """
+    secret = os.getenv("STUDYLAB_JWT_SECRET")
+    enforce = (os.getenv("STUDYLAB_REQUIRE_AUTH") or "").strip().lower() in {"1", "true", "yes", "on"}
+    dev_ok = (os.getenv("STUDYLAB_DEV_INSECURE") or "").strip().lower() in {"1", "true", "yes", "on"}
+    if secret and secret != _DEV_SECRET:
+        return secret
+    if enforce and not dev_ok:
+        raise RuntimeError(
+            "STUDYLAB_JWT_SECRET must be set to a strong, non-default value when "
+            "STUDYLAB_REQUIRE_AUTH is enabled (set STUDYLAB_DEV_INSECURE=1 to override in dev only)."
+        )
+    return _DEV_SECRET
+
+
+def _truthy(value: str | None) -> bool:
+    return (value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _mock_email_enabled() -> bool:
+    """Reset tokens are only returned in the API response in mock-email mode.
+
+    Mock mode = auth not enforced (offline/demo/tests) OR an explicit opt-in flag. In a
+    real (enforced) deployment the token must be emailed, never returned to the caller.
+    """
+    enforce = _truthy(os.getenv("STUDYLAB_REQUIRE_AUTH"))
+    return not enforce or _truthy(os.getenv("STUDYLAB_AUTH_MOCK_EMAIL"))
 
 
 class AuthEngine:
@@ -97,10 +128,16 @@ class AuthEngine:
 
     # ── Token issue / verify ─────────────────────────────────────────────
 
-    def issue_token(self, user: User) -> str:
+    def issue_token(self, user: User, purpose: str = "session", ttl_seconds: int | None = None) -> str:
         now = int(time.time())
         header = {"alg": _JWT_ALG, "typ": "JWT"}
-        payload = {"sub": user.id, "email": user.email, "iat": now, "exp": now + self.ttl_seconds}
+        payload = {
+            "sub": user.id,
+            "email": user.email,
+            "purpose": purpose,
+            "iat": now,
+            "exp": now + (ttl_seconds if ttl_seconds is not None else self.ttl_seconds),
+        }
         segments = [
             _b64url_encode(json.dumps(header, separators=(",", ":")).encode("utf-8")),
             _b64url_encode(json.dumps(payload, separators=(",", ":")).encode("utf-8")),
@@ -114,19 +151,26 @@ class AuthEngine:
             header_seg, payload_seg, signature_seg = token.split(".")
         except (ValueError, AttributeError) as exc:
             raise AuthError("malformed token") from exc
+        try:
+            signature = _b64url_decode(signature_seg)
+        except (ValueError, binascii.Error) as exc:
+            raise AuthError("malformed token signature") from exc
         expected = self._sign(f"{header_seg}.{payload_seg}")
-        if not hmac.compare_digest(expected, _b64url_decode(signature_seg)):
+        if not hmac.compare_digest(expected, signature):
             raise AuthError("invalid token signature")
         try:
             payload = json.loads(_b64url_decode(payload_seg))
-        except (ValueError, json.JSONDecodeError) as exc:
+            expiry = int(payload.get("exp", 0))
+        except (ValueError, binascii.Error, json.JSONDecodeError) as exc:
             raise AuthError("malformed token payload") from exc
-        if int(payload.get("exp", 0)) < int(time.time()):
+        if expiry < int(time.time()):
             raise AuthError("token expired")
         return payload
 
-    def user_from_token(self, token: str) -> User:
+    def user_from_token(self, token: str, expected_purpose: str = "session") -> User:
         payload = self.decode_token(token)
+        if payload.get("purpose", "session") != expected_purpose:
+            raise AuthError("token cannot be used for this action")
         user = self.store.users.get(payload.get("sub"))
         if user is None:
             raise AuthError("token subject no longer exists")
@@ -134,6 +178,54 @@ class AuthEngine:
 
     def public_user(self, user: User) -> dict[str, Any]:
         return self._public_user(user)
+
+    # ── Account self-service (Phase 6) ────────────────────────────────────
+
+    def change_password(self, user_id: str, current_password: str, new_password: str) -> dict[str, Any]:
+        user = self.store.require_user(user_id)
+        if not verify_password(current_password, user.password_hash):
+            raise AuthError("current password is incorrect")
+        if len(new_password) < 8:
+            raise AuthError("password must be at least 8 characters")
+        user.password_hash = hash_password(new_password)
+        self.store.save_user(user)
+        return self._public_user(user)
+
+    def update_profile(self, user_id: str, subject_domain: str | None = None, prefs: dict | None = None) -> dict[str, Any]:
+        user = self.store.require_user(user_id)
+        if subject_domain is not None:
+            user.subject_domain = subject_domain
+        if prefs is not None:
+            user.prefs = prefs
+        self.store.save_user(user)
+        return self._public_user(user)
+
+    def request_password_reset(self, email: str) -> dict[str, Any]:
+        """Issue a short-lived, purpose-scoped reset token.
+
+        Security: the token is returned in the response **only in mock-email mode** — i.e. when
+        auth is not being enforced (offline/demo/tests) or ``STUDYLAB_AUTH_MOCK_EMAIL`` is set.
+        In production (``STUDYLAB_REQUIRE_AUTH`` on, no mock flag) the token is created but a real
+        deployment must deliver it out-of-band (email); the response only confirms receipt, so a
+        public caller can never read another account's reset token. The response shape is identical
+        whether or not the email exists, to avoid account enumeration.
+        """
+        user = self.store.get_user_by_email(self._normalize_email(email))
+        token = self.issue_token(user, purpose="pwreset", ttl_seconds=30 * 60) if user else None
+        return {"ok": True, "reset_token": token if _mock_email_enabled() else None}
+
+    def reset_password(self, token: str, new_password: str) -> dict[str, Any]:
+        user = self.user_from_token(token, expected_purpose="pwreset")
+        if len(new_password) < 8:
+            raise AuthError("password must be at least 8 characters")
+        user.password_hash = hash_password(new_password)
+        self.store.save_user(user)
+        return self._public_user(user)
+
+    def delete_account(self, user_id: str) -> dict[str, Any]:
+        self.store.require_user(user_id)
+        self.store.delete_user(user_id)
+        return {"ok": True, "deleted": user_id}
 
     # ── internals ────────────────────────────────────────────────────────
 

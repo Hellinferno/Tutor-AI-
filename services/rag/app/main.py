@@ -1,4 +1,14 @@
+"""Internal RAG service.
+
+This is an INTERNAL service that mirrors a slice of the gateway's route table for
+service-to-service use. It does NOT perform bearer-token auth or ownership checks —
+the authenticated **gateway** is the public front door. Therefore this service binds
+to loopback (127.0.0.1) by default; override with RAG_BIND_HOST only inside a trusted
+network. Do not expose it directly to untrusted clients.
+"""
 from __future__ import annotations
+
+import os
 
 from studylab_core import InMemoryStudyLabStore, RagEngine, StudyLabAPI, make_store_from_env
 from studylab_core.service_http import Route, serve
@@ -115,7 +125,7 @@ ROUTES = [
 
 
 def main() -> None:
-    serve("StudyLabRag/0.1", ROUTES, env_port="RAG_PORT", default_port=8001)
+    serve("StudyLabRag/0.1", ROUTES, env_port="RAG_PORT", default_port=8001, host=os.getenv("RAG_BIND_HOST", "127.0.0.1"))
 
 
 if __name__ == "__main__":

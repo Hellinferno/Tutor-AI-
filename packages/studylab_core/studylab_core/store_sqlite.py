@@ -371,6 +371,15 @@ class SqliteStudyLabStore:
             self._conn.commit()
         return user
 
+    def save_user(self, user: User) -> User:
+        with self._lock:
+            self._conn.execute(
+                "UPDATE users SET email=?, password_hash=?, subject_domain=?, prefs=? WHERE id=?",
+                (user.email, user.password_hash, user.subject_domain, json.dumps(user.prefs), user.id),
+            )
+            self._conn.commit()
+        return user
+
     def require_user(self, user_id: str) -> User:
         user = self._get_user(user_id)
         if user is None:
@@ -381,6 +390,55 @@ class SqliteStudyLabStore:
         with self._lock:
             row = self._conn.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
         return self._row_to_user(row) if row else None
+
+    def delete_user(self, user_id: str) -> None:
+        """Delete a user and cascade-remove their owned data (account deletion)."""
+        with self._lock:
+            cur = self._conn.execute("SELECT id FROM notebooks WHERE user_id=?", (user_id,))
+            notebook_ids = [r["id"] for r in cur.fetchall()]
+            placeholders = ",".join("?" for _ in notebook_ids)
+            if notebook_ids:
+                src = self._conn.execute(
+                    f"SELECT id FROM sources WHERE notebook_id IN ({placeholders})", notebook_ids
+                ).fetchall()
+                source_ids = [r["id"] for r in src]
+                # Quiz/paper ids back answer_keys (keyed by source_id).
+                graded = self._conn.execute(
+                    f"SELECT id FROM quizzes WHERE notebook_id IN ({placeholders})", notebook_ids
+                ).fetchall()
+                graded += self._conn.execute(
+                    f"SELECT id FROM question_papers WHERE notebook_id IN ({placeholders})", notebook_ids
+                ).fetchall()
+                graded_ids = [r["id"] for r in graded]
+                if graded_ids:
+                    gp = ",".join("?" for _ in graded_ids)
+                    self._conn.execute(f"DELETE FROM answer_keys WHERE source_id IN ({gp})", graded_ids)
+                for table in ("sources", "source_chunks", "source_imports", "artifacts",
+                              "whiteboard_sessions", "multi_agent_teaching_sessions",
+                              "quizzes", "question_papers"):
+                    self._conn.execute(
+                        f"DELETE FROM {table} WHERE notebook_id IN ({placeholders})", notebook_ids
+                    )
+                if source_ids:
+                    sp = ",".join("?" for _ in source_ids)
+                    self._conn.execute(f"DELETE FROM source_guides WHERE source_id IN ({sp})", source_ids)
+                self._conn.execute(f"DELETE FROM notebooks WHERE id IN ({placeholders})", notebook_ids)
+            # Eval reports are keyed by the user's attempt ids.
+            att = self._conn.execute("SELECT id FROM attempts WHERE user_id=?", (user_id,)).fetchall()
+            attempt_ids = [r["id"] for r in att]
+            if attempt_ids:
+                ap = ",".join("?" for _ in attempt_ids)
+                self._conn.execute(f"DELETE FROM eval_reports WHERE attempt_id IN ({ap})", attempt_ids)
+            prof = self._conn.execute("SELECT id FROM student_profiles WHERE user_id=?", (user_id,)).fetchall()
+            profile_ids = [r["id"] for r in prof]
+            if profile_ids:
+                pp = ",".join("?" for _ in profile_ids)
+                self._conn.execute(f"DELETE FROM topic_masteries WHERE student_profile_id IN ({pp})", profile_ids)
+            for table in ("attempts", "revision_cards", "sessions", "student_profiles",
+                          "subscriptions", "usage_records"):
+                self._conn.execute(f"DELETE FROM {table} WHERE user_id=?", (user_id,))
+            self._conn.execute("DELETE FROM users WHERE id=?", (user_id,))
+            self._conn.commit()
 
     def add_notebook(self, title: str, user_id: str = "demo-user") -> Notebook:
         notebook = Notebook(id=self.next_id("notebook"), title=title, user_id=user_id)

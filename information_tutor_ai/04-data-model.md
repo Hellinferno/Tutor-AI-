@@ -183,6 +183,13 @@ store backs first‑party auth (it previously existed only as the spec's Postgre
 `prefs` (JSON), `created_at`. JWTs are **stateless** (HS256, signed with `STUDYLAB_JWT_SECRET`), so
 there is no sessions/tokens table; observability metrics are in‑process counters, not persisted.
 
+> **Phase 6 — account deletion:** `delete_user` cascades a user's owned data across every table —
+> their notebooks and notebook‑scoped rows (sources, chunks, guides, artifacts, whiteboard/agent
+> sessions, quizzes, papers, source imports), the derived grading rows (answer keys, eval reports),
+> and their user‑scoped rows (attempts, revision cards, sessions, student profiles + topic masteries,
+> subscriptions, usage records) — before removing the `users` row. No schema change (migration 006 is
+> indexes only); the cascade is enforced in both the in‑memory and SQLite stores.
+
 ---
 
 ## Enumerated types

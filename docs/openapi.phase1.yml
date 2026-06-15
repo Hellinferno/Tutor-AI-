@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
-  title: StudyLab Phase 0-5 API
-  version: 0.5.0
+  title: StudyLab Phase 0-6 API
+  version: 0.6.0
 servers:
   - url: /v1
 paths:
@@ -148,4 +148,22 @@ paths:
       summary: Return the authenticated user for the supplied Bearer token
   /metrics:
     get:
-      summary: Observability snapshot (refusal rate, citation coverage, verified rate, cache hit, solve latency)
+      summary: Observability snapshot (gated behind auth when STUDYLAB_REQUIRE_AUTH is set)
+  /ready:
+    get:
+      summary: Readiness probe (process up + store opened); returns version and store type
+  /auth/password/forgot:
+    post:
+      summary: Request a password-reset token (emailed in prod; returned in mock mode)
+  /auth/password/reset:
+    post:
+      summary: Set a new password using a purpose-scoped reset token
+  /auth/password/change:
+    post:
+      summary: Change password for the authenticated user (Bearer token required)
+  /auth/profile:
+    post:
+      summary: Update the authenticated user's subject_domain / prefs
+  /auth/delete:
+    post:
+      summary: Delete the authenticated user's account and cascade their data

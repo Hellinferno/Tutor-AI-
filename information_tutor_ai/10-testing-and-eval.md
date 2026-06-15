@@ -1,6 +1,6 @@
 # 10 — Testing & Evaluation 🔵
 
-The project's quality gate: what runs, what it proves, and the Phase 1–5 acceptance criteria.
+The project's quality gate: what runs, what it proves, and the Phase 1–6 acceptance criteria.
 
 > 🟢 **Plain English:** before code is considered "done," it must pass automatic checks. There are
 > two: a **test suite** (does each feature behave correctly?) and an **eval gate** (does the solver
@@ -12,7 +12,7 @@ The project's quality gate: what runs, what it proves, and the Phase 1–5 accep
 
 | Command | What it checks | Current result |
 |---|---|---|
-| `python -m unittest discover tests` | 111 unit/integration tests | ✅ 111 passed |
+| `python -m unittest discover tests` | 134 unit/integration tests | ✅ 134 passed |
 | `python packages/eval/run_eval.py` | solver verification gate | ✅ 15 cases, `false_verified_rate=0` |
 | `python -m compileall packages services` | every module byte‑compiles (per [Instructions/12](../Instructions/12-testing-strategy.md)) | ✅ clean |
 | `cd apps/web && npm run build` | web compiles + type‑checks + prerenders | ✅ green (interactive app) |
@@ -20,16 +20,18 @@ The project's quality gate: what runs, what it proves, and the Phase 1–5 accep
 CI runs the first two (job `python-test`) and a web manifest check (job `web-static`) on every
 push — see [.circleci/config.yml](../.circleci/config.yml).
 
-> 🔒 **Security:** a focused security review of the Phase 4 change set (connectors, multi‑agent
-> teaching, pricing/billing) found **no high/medium‑confidence vulnerabilities** — the new SQL is
-> fully parameterized, the connector never fetches remote URLs (no SSRF), billing secrets stay
-> server‑side, and the web panels use React's default escaping. Production auth (Bearer JWT per
-> [Instructions/06](../Instructions/06-api-contracts.md)) remains the documented next step before a
-> public launch.
+> 🔒 **Security:** the Phase 4 change set review found **no high/medium‑confidence vulnerabilities**.
+> The Phase 6 review surfaced and **fixed** four issues before they shipped: a password‑reset token
+> that was returned in the response body (now mock‑gated; production emails it), a malformed bearer
+> token that returned 500 instead of 401, an account‑deletion cascade that orphaned
+> `answer_keys`/`eval_reports`, and a rate‑limit key that could read a stale user id. Automated
+> commit/push security sweeps additionally flagged IDOR + dev‑secret‑fallback risks in the enforced
+> auth path, all addressed in Phase 6 (token‑derived identity + per‑user ownership; fail‑fast JWT
+> secret).
 
 ---
 
-## The test suite (111 tests)
+## The test suite (134 tests)
 
 ### `tests/test_phase1_core.py` — 12 tests
 - **Chunking**: offsets are stable (a chunk's `[start:end]` slice reproduces its text).
@@ -99,9 +101,23 @@ push — see [.circleci/config.yml](../.circleci/config.yml).
 - **Observability**: metrics track asks/solves with correct refusal and verified rates; the snapshot
   has the full shape (incl. solve‑latency percentiles).
 
-> The gateway HTTP routing for **all Phase 2–5 endpoints** is additionally smoke‑tested end‑to‑end
-> against a live `ThreadingHTTPServer` (every route returns 200; auth enforcement returns 401/200 and
-> quota enforcement returns 402), and the web app passes `tsc --noEmit` + `next build`.
+### `tests/test_phase6_core.py` — 23 tests
+- **Account self‑service**: change password (success / wrong‑current / short‑new rejected); update
+  profile; password‑reset flow; a reset token can't be used as a session token; unknown‑email returns
+  no token; reset token is **not** returned when auth is enforced.
+- **Account deletion**: cascade removes the user's notebooks, sources, subscription, **and** derived
+  grading artifacts (`answer_keys`/`eval_reports`) — in both the in‑memory and SQLite stores.
+- **Input caps**: over‑cap upload and over‑cap connector import raise; under‑cap passes.
+- **Rate limiter**: allows up to the limit then raises; keys are independent; empty spec disables;
+  invalid spec raises.
+- **JWT‑secret guard**: enforced‑without‑secret raises; enforced‑with‑secret works; dev fallback when
+  not enforced; explicit `STUDYLAB_DEV_INSECURE` override.
+- **Robustness**: a malformed bearer raises `AuthError` (→ 401), never an uncaught 500.
+
+> The gateway HTTP routing for **all Phase 2–6 endpoints** is additionally smoke‑tested end‑to‑end
+> against a live `ThreadingHTTPServer`: every route returns 200; with auth enforced, ownership/IDOR
+> attempts return 403, missing/malformed tokens 401, over‑quota 402, and `/metrics` is gated; CORS
+> preflight returns 204. The web app passes `tsc --noEmit` + `next build`.
 
 ---
 
@@ -221,4 +237,30 @@ contract's `Auth: Bearer JWT`, and the metrics + "private per user" notes in
 
 ➡️ **The Phase 5 gate passes.** Enforcement flags ship **off by default** so the app stays
 runnable offline; flipping them on (plus a strong `STUDYLAB_JWT_SECRET`) is the production switch.
-OAuth/SSO, password reset, and a managed metrics backend remain later concerns.
+OAuth/SSO and a managed metrics backend remain later concerns.
+
+---
+
+## Phase 6 acceptance gate (production hardening + user readiness)
+
+Phase 6 closes the remaining gaps for shipping to real users — the production-hardening concerns in
+[Instructions/11-environment-and-devops.md](../Instructions/11-environment-and-devops.md) plus
+account self-service — and folds in the fixes from the security reviews.
+
+| Gate criterion | Status |
+|---|---|
+| Per-user authorization / no IDOR | ✅ (gateway derives identity from the token; ownership enforced on notebooks, sessions, billing, user reads/writes → 403) |
+| No forged tokens in prod | ✅ (`make_auth_secret` refuses the dev sentinel when auth is enforced) |
+| CORS for the browser app | ✅ (headers on every response + `OPTIONS` 204 preflight; `STUDYLAB_CORS_ORIGINS`) |
+| Rate limiting | ✅ (`RateLimiter` → HTTP 429 + `Retry-After` when `STUDYLAB_RATE_LIMIT` set) |
+| Input-size caps | ✅ (`STUDYLAB_MAX_SOURCE_CHARS` on upload + connector import → 400) |
+| Account self-service | ✅ (change/reset password, edit profile, delete account + full data cascade) |
+| Reset-token safety | ✅ (returned only in mock-email mode; never leaked when auth enforced) |
+| Readiness probe | ✅ (`/ready`); `/metrics` gated behind auth when enforced |
+| Onboarding | ✅ (one-click "Load sample" notebook; account settings UI) |
+| Tests pass | ✅ 23 Phase 6 tests + gateway HTTP security smoke test |
+
+➡️ **The Phase 6 gate passes**, and the four review findings (reset-token leak, malformed-token 500,
+cascade orphans, stale rate-limit key) plus the automated IDOR/dev-secret sweeps were all fixed and
+re-verified. Remaining later work: native mobile, horizontal-scaling infra, OAuth/SSO, and wiring a
+reset-email provider — see [11-current-status.md](11-current-status.md).

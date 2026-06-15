@@ -49,16 +49,17 @@ support, **solves math/finance/coding problems and verifies the answers**, gener
 artifacts (summary notes, study guides, planners, revision cards) that can be exported to
 Notion, **teaches, quizzes, and tests you** with verified answer keys and auto‑graded reports,
 **remembers your progress** with spaced‑repetition revision, per‑topic mastery, analytics,
-and voice I/O, **imports more source types (website / YouTube / audio / Google Docs), teaches
+and voice I/O, imports more source types (website / YouTube / audio / Google Docs), teaches
 with a multi‑agent team, runs Free/Scholar/Pro plans with usage metering, and ships
-production‑readiness — accounts (login), per‑user privacy, enforceable usage limits, and a
-`/metrics` health endpoint**. This repository contains the **Phase 0 → Phase 5 vertical slice**: a
-working, fully‑tested core (111 tests) with an **interactive, responsive Next.js web app wired to the
-gateway**, all runnable without any external cloud services.
+production‑readiness — **accounts with full self‑service (sign‑up, login, change/reset password,
+delete account), per‑user privacy (IDOR‑safe), CORS + rate limiting + input caps, a `/metrics` health
+endpoint, and one‑click sample onboarding**. This repository contains the **Phase 0 → Phase 6
+vertical slice**: a working, fully‑tested core (134 tests) with an **interactive, responsive Next.js
+web app wired to the gateway**, all runnable without any external cloud services.
 
-> 🟢 **Non‑developer note:** "Phase 0 through Phase 5" means *the foundation, grounded Q&A +
+> 🟢 **Non‑developer note:** "Phase 0 through Phase 6" means *the foundation, grounded Q&A +
 > verified solving, the teaching/quiz/paper layer, the memory/revision/analytics/voice layer, the
-> connectors/multi‑agent/pricing layer, and the production‑readiness layer (login, privacy, usage
-> limits, health metrics)*. The website is a working, responsive app (not a mockup). Remaining later
-> work: native mobile, horizontal‑scaling infra, and social login. See
-> [11-current-status.md](11-current-status.md).
+> connectors/multi‑agent/pricing layer, the auth/observability layer, and the production‑hardening +
+> user‑readiness layer (account self‑service, safety rails, onboarding)*. The website is a working,
+> responsive app (not a mockup). Remaining later work: native mobile, horizontal‑scaling infra,
+> social login, and reset‑email delivery. See [11-current-status.md](11-current-status.md).

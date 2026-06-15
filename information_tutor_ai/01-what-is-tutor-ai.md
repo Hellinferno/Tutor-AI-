@@ -118,8 +118,19 @@ The production‑readiness layer (Phase 5) adds:
 - **A health dashboard** — a simple panel shows how the system is doing: how often it correctly
   refused to answer, how often answers were verified, how fast solving is, and the cache hit rate.
 
-> 🟢 **Safe to try:** these protections ship **switched off by default** so anyone can run the app
-> with no setup; flipping one environment switch turns on real login enforcement and usage limits.
+### 10. It's ready for real people to use
+The latest layer (Phase 6) is about being genuinely usable and safe in the real world:
+- **Manage your own account** — change your password, reset it if you forget (via a one‑time token),
+  switch your subject focus, or **delete your account and all its data** in one click.
+- **Start in seconds** — a "Load sample" button creates a ready‑made notebook with example notes so
+  you can try teaching, quizzes, and solving immediately.
+- **Safety rails** — the service protects itself with request rate limits, limits on how much text a
+  single source can contain, and proper cross‑site protections so the website and server work
+  together securely. When secure mode is on, you can only ever see your own data.
+
+> 🟢 **Safe to try:** the login/usage protections ship **switched off by default** so anyone can run
+> the app with no setup; flipping one environment switch turns on real login enforcement, usage
+> limits, and rate limiting for production.
 
 ---
 
@@ -136,19 +147,21 @@ The production‑readiness layer (Phase 5) adds:
 
 ## What's built right now (and what isn't)
 
-✅ **Built and working today** (Phase 0 → Phase 5): notebooks, source upload, source guides, grounded
+✅ **Built and working today** (Phase 0 → Phase 6): notebooks, source upload, source guides, grounded
 answers with citations, honest refusal, verified math/finance/code solving, study artifacts, Notion
 export, durable saving of your data, the teaching whiteboard, quizzes, question papers, verified
 answer keys, auto‑graded reports, spaced‑repetition revision, a per‑topic mastery model, progress
 analytics, voice input/output, the website / YouTube / audio / Google Docs connectors, multi‑agent
-teaching, Free/Scholar/Pro plans with usage metering, **plus real accounts (login), per‑user privacy,
-enforceable usage limits, and a system‑health dashboard** — all driven from a working, responsive
-interactive website.
+teaching, Free/Scholar/Pro plans with usage metering, real accounts (login) with per‑user privacy and
+a system‑health dashboard, **plus full account self‑service (change/reset password, delete account),
+one‑click sample onboarding, and production safety rails (rate limits, input caps, CORS)** — all
+driven from a working, responsive interactive website.
 
 🚧 **Planned for later**: a **native mobile app** (the website is already responsive),
-**horizontal‑scaling** infrastructure, and **social login (OAuth/SSO) + password reset**. Real
-external services — Postgres, Qdrant, embeddings, OCR, the voice provider, connector fetch‑workers,
-and Stripe billing — are wired as env‑gated adapters you can switch on with a key.
+**horizontal‑scaling** infrastructure, **social login (OAuth/SSO)**, and wiring an **email provider**
+to deliver password‑reset links. Real external services — Postgres, Qdrant, embeddings, OCR, the
+voice provider, connector fetch‑workers, and Stripe billing — are wired as env‑gated adapters you can
+switch on with a key.
 
 For the precise, honest breakdown see [11-current-status.md](11-current-status.md).
 

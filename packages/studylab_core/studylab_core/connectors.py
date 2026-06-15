@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import html
+import os
 import re
 from typing import Any
 from urllib.parse import urlparse
@@ -8,6 +9,14 @@ from urllib.parse import urlparse
 from .models import ConnectorType, SourceGuide, SourceImport
 from .rag import RagEngine
 from .store import InMemoryStudyLabStore
+
+
+def _max_source_chars() -> int:
+    raw = os.getenv("STUDYLAB_MAX_SOURCE_CHARS")
+    try:
+        return int(raw) if raw else 1_000_000
+    except ValueError:
+        return 1_000_000
 
 
 class SourceConnectorEngine:
@@ -79,6 +88,9 @@ class SourceConnectorEngine:
         text = self._clean_text(text)
         if not text:
             raise ValueError(f"{connector_type} import requires extracted text, transcript, exported_text, or html content")
+        cap = _max_source_chars()
+        if len(text) > cap:
+            raise ValueError(f"imported content exceeds the maximum of {cap} characters")
         return text, metadata, warnings
 
     def _metadata(self, connector_type: ConnectorType, payload: dict[str, Any]) -> dict[str, Any]:

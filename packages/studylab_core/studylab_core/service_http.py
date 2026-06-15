@@ -79,9 +79,10 @@ def build_handler_class(server_name: str, routes: list[Route]) -> type[BaseHTTPR
     return _Handler
 
 
-def serve(server_name: str, routes: list[Route], env_port: str, default_port: int) -> None:
+def serve(server_name: str, routes: list[Route], env_port: str, default_port: int, host: str | None = None) -> None:
     port = int(os.getenv(env_port, str(default_port)))
+    bind_host = host or os.getenv("BIND_HOST", "0.0.0.0")
     handler_class = build_handler_class(server_name, routes)
-    server = ThreadingHTTPServer(("0.0.0.0", port), handler_class)
-    print(f"{server_name} listening on http://localhost:{port}")
+    server = ThreadingHTTPServer((bind_host, port), handler_class)
+    print(f"{server_name} listening on http://{bind_host}:{port}")
     server.serve_forever()

@@ -31,7 +31,9 @@ machine‑readable spec is [docs/openapi.phase1.yml](../docs/openapi.phase1.yml)
 | **Multi-agent teaching** (start / get / next / prev) | ✅ | ✅ | — |
 | **Billing** (plans / subscription / subscribe / usage) | ✅ | ✅ | — |
 | **Auth** (register / login / me) | ✅ | ✅ (register/login) | — |
+| **Account** (password change/forgot/reset, profile, delete) | ✅ | — | — |
 | **Observability** (`/metrics`) | ✅ | ✅ | — |
+| **Health/readiness** (`/health`, `/ready`) | ✅ | ✅ (`/health`) | ✅ (`/health`) |
 
 The **gateway** exposes the full surface in‑process. `rag` and `solver` expose their slices.
 
@@ -348,6 +350,51 @@ Observability snapshot — the production signals from
 > **Quota enforcement:** when `STUDYLAB_ENFORCE_QUOTAS=true`, a metered action that exceeds the plan
 > quota returns **`402` `quota_exceeded`** with a `quota` object (`action`, `used`, `limit`,
 > `remaining`). With the flag off (default) usage is metered but never blocked.
+
+---
+
+## Phase 6 endpoints — account self-service & hardening
+
+Account routes require a valid `Authorization: Bearer <token>` (they act on *the token's* user —
+never a path/payload user id). The forgot/reset routes are public (token-based).
+
+### `POST /v1/auth/password/change`
+Change the authenticated user's password.
+```json
+// request:  { "current_password": "…", "new_password": "min-8-chars" }   // response: public user
+```
+Wrong current password or a too-short new password returns `401`.
+
+### `POST /v1/auth/password/forgot`  ·  `POST /v1/auth/password/reset`
+Request a reset, then set a new password with the purpose-scoped reset token.
+```json
+// forgot request: { "email": "dia@example.com" }  → { "ok": true, "reset_token": "…"|null }
+// reset  request: { "token": "…", "password": "min-8-chars" }  → public user
+```
+The `reset_token` is returned in the body **only in mock-email mode** (auth not enforced, or
+`STUDYLAB_AUTH_MOCK_EMAIL` set); in production it is delivered out-of-band and the response only
+confirms receipt. A reset token cannot be used as a session token (purpose-scoped).
+
+### `POST /v1/auth/profile`
+Update the authenticated user's `subject_domain` and/or `prefs` → public user.
+
+### `POST /v1/auth/delete`
+Delete the authenticated user's account and **cascade** all their data (notebooks, sources, chunks,
+guides, artifacts, sessions, quizzes/papers, imports, attempts, answer keys, eval reports, revision
+cards, mastery, subscription, usage) → `{ "ok": true, "deleted": "<user_id>" }`.
+
+### `GET /ready`
+Readiness probe (no auth) → `{ "status": "ready", "version": "0.6.0", "store": "SqliteStudyLabStore" }`.
+`GET /health` returns `{ "status": "ok", "version": "0.6.0" }`.
+
+### Hardening behaviour (all routes)
+- **CORS:** every response carries `Access-Control-Allow-*`; `OPTIONS` preflight returns `204`.
+  Allowed origin is `STUDYLAB_CORS_ORIGINS` (default `*`).
+- **Rate limiting:** when `STUDYLAB_RATE_LIMIT="requests/seconds"` is set, exceeding it returns
+  **`429` `rate_limited`** with a `Retry-After` header (keyed by user when authenticated, else IP).
+- **Input caps:** source upload/import over `STUDYLAB_MAX_SOURCE_CHARS` (default 1,000,000) returns `400`.
+- **Auth gate:** with `STUDYLAB_REQUIRE_AUTH=true`, every non-public route needs a bearer token
+  (else `401`); accessing another user's notebook/resource returns **`403` `forbidden`**.
 
 ---
 

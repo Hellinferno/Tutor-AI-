@@ -55,6 +55,7 @@ class StudyLabAPI:
         return self.store.to_plain(self.rag.create_notebook(title=title, user_id=user_id))
 
     def upload_source(self, notebook_id: str, title: str, text: str, kind: str = "notes") -> dict[str, Any]:
+        self._check_source_size(text)
         source, guide = self.rag.ingest_source(notebook_id=notebook_id, title=title, text=text, kind=kind)
         return {"source": self.store.to_plain(source), "source_guide": self.store.to_plain(guide)}
 
@@ -366,6 +367,12 @@ class StudyLabAPI:
         record = self.pricing.enforce(user_id, action)
         return {"recorded": self.store.to_plain(record), "quota": self.pricing.check_quota(user_id, action)}
 
+    def _check_source_size(self, text: str) -> None:
+        """Reject oversized source text (production safety cap; default ~1M chars)."""
+        cap = _max_source_chars()
+        if len(text or "") > cap:
+            raise ValueError(f"source text exceeds the maximum of {cap} characters")
+
     def _guard(self, user_id: str, action: MeteredAction) -> None:
         """Meter a metered action — enforcing the quota when STUDYLAB_ENFORCE_QUOTAS is set.
 
@@ -403,6 +410,29 @@ class StudyLabAPI:
             raise PermissionError("you do not have access to this notebook")
         return True
 
+    def notebook_id_for_teaching(self, session_id: str) -> str:
+        return self.teaching.get_session(session_id).notebook_id
+
+    def notebook_id_for_agent_session(self, session_id: str) -> str:
+        return self.teaching.get_multi_agent_session(session_id).notebook_id
+
+    # ── Phase 6: Account self-service ──────────────────────────────────────
+
+    def change_password(self, user_id: str, current_password: str, new_password: str) -> dict[str, Any]:
+        return self.auth.change_password(user_id, current_password, new_password)
+
+    def update_profile(self, user_id: str, subject_domain: str | None = None, prefs: dict | None = None) -> dict[str, Any]:
+        return self.auth.update_profile(user_id, subject_domain=subject_domain, prefs=prefs)
+
+    def request_password_reset(self, email: str) -> dict[str, Any]:
+        return self.auth.request_password_reset(email)
+
+    def reset_password(self, token: str, new_password: str) -> dict[str, Any]:
+        return self.auth.reset_password(token, new_password)
+
+    def delete_account(self, user_id: str) -> dict[str, Any]:
+        return self.auth.delete_account(user_id)
+
     # ── Phase 5: Observability ────────────────────────────────────────────
 
     def metrics_snapshot(self) -> dict[str, Any]:
@@ -411,3 +441,11 @@ class StudyLabAPI:
 
 def _truthy(value: str | None) -> bool:
     return (value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _max_source_chars() -> int:
+    raw = os.getenv("STUDYLAB_MAX_SOURCE_CHARS")
+    try:
+        return int(raw) if raw else 1_000_000
+    except ValueError:
+        return 1_000_000

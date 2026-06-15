@@ -283,6 +283,27 @@ export function getMe(): Promise<AuthUser> {
   return get<AuthUser>("/auth/me");
 }
 
+// ── Phase 6: Account self-service ──
+export function changePassword(currentPassword: string, newPassword: string): Promise<AuthUser> {
+  return post<AuthUser>("/auth/password/change", { current_password: currentPassword, new_password: newPassword });
+}
+
+export function updateProfile(subjectDomain?: string, prefs?: Record<string, unknown>): Promise<AuthUser> {
+  return post<AuthUser>("/auth/profile", { subject_domain: subjectDomain, prefs });
+}
+
+export function requestPasswordReset(email: string): Promise<{ ok: boolean; reset_token: string | null }> {
+  return post<{ ok: boolean; reset_token: string | null }>("/auth/password/forgot", { email });
+}
+
+export function resetPassword(token: string, password: string): Promise<AuthUser> {
+  return post<AuthUser>("/auth/password/reset", { token, password });
+}
+
+export function deleteAccount(): Promise<{ ok: boolean; deleted: string }> {
+  return post<{ ok: boolean; deleted: string }>("/auth/delete", {});
+}
+
 export function getMetrics(): Promise<MetricsSnapshot> {
   return fetch(`${SERVER_BASE}/metrics`, { headers: authHeaders() }).then(async (r) => {
     if (!r.ok) throw new ApiError(r.status, await readError(r));

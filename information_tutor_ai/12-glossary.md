@@ -47,6 +47,11 @@ Plain‑English definitions of the terms used across this project and these docs
 | **Bearer token** | A token sent in the `Authorization: Bearer …` header to authenticate a request. |
 | **Quota enforcement** | Actually blocking an action once you've used up your plan's monthly allowance (returns "402 — upgrade your plan"). |
 | **Observability / metrics** | Live health signals about the running system (refusal rate, citation coverage, verified rate, cache hit, solve latency) exposed at `/metrics`. |
+| **IDOR (Insecure Direct Object Reference)** | A bug where one user can access another user's data by changing an id in the request. Prevented here by deriving identity from the token and checking ownership. |
+| **CORS** | Browser rules controlling which web origins may call an API; the gateway sends the headers (and answers preflight `OPTIONS`) so the website can talk to it safely. |
+| **Rate limiting** | Capping how many requests a client may make in a time window (returns HTTP 429 when exceeded) to protect the service. |
+| **Account self‑service** | Letting a user manage their own account: change password, reset a forgotten one, edit profile, or delete the account (and all its data). |
+| **Readiness probe (`/ready`)** | An endpoint a load balancer checks to know the service is up and its store opened before sending traffic. |
 | **Notion export** | Sending a generated artifact into the Notion note‑taking app. |
 | **Gateway** | The backend "front door" service that receives requests from the website. |
 | **Service** | A standalone backend program (here: gateway, rag, solver). |
@@ -62,4 +67,4 @@ Plain‑English definitions of the terms used across this project and these docs
 | **CI (Continuous Integration)** | Automated checks that run on every code push (here, CircleCI). |
 | **Eval / benchmark** | A fixed set of test problems used to measure solver quality. |
 | **Env‑gated adapter** | Code whose live behaviour turns on only when an environment variable / external service is configured. |
-| **Phase 0–5** | Built stages: foundation (0), grounded RAG + verified solver (1), teaching/quiz/paper (2), memory/revision/analytics/voice (3), connectors + multi‑agent teaching + pricing (4), production readiness — auth, authorization, quota enforcement, observability (5). Remaining later: native mobile, horizontal‑scaling infra, and OAuth/SSO. |
+| **Phase 0–6** | Built stages: foundation (0), grounded RAG + verified solver (1), teaching/quiz/paper (2), memory/revision/analytics/voice (3), connectors + multi‑agent teaching + pricing (4), auth/authorization/quotas/observability (5), production hardening + user readiness — CORS, rate limiting, input caps, account self‑service, onboarding (6). Remaining later: native mobile, horizontal‑scaling infra, OAuth/SSO, reset‑email delivery. |

@@ -35,6 +35,7 @@ explainer at the top of each section.
                           │       ├─ SourceConnectorEngine      (Phase 4)       │
                           │       ├─ PricingEngine · BillingProvider (Phase 4)  │
                           │       ├─ AuthEngine · MetricsCollector  (Phase 5)   │
+                          │       ├─ RateLimiter (gateway)         (Phase 6)   │
                           │       ├─ NotionExporter                             │
                           │       └─ Store (InMemory │ SQLite)                  │
                           └──────────────────────────────────────────────────────┘
@@ -58,7 +59,7 @@ explainer at the top of each section.
 |---|---|---|
 | **Web app** | [apps/web](../apps/web) | Next.js 15 / React 19 UI — 16 **interactive, responsive** panels (account, sources, connectors, ask, teach, multi‑agent, solve, quiz, paper, artifacts, report, revision, analytics, voice, plans, metrics) wired to the gateway via [lib/api.ts](../apps/web/lib/api.ts) and a shared [NotebookProvider](../apps/web/lib/notebook-context.tsx). |
 | **Gateway service** | [services/gateway](../services/gateway) | HTTP front door exposing the full API (Phase 1–4 + Phase 5 auth/`/metrics`). Maps engine errors to status codes (401/402/403/404/400) and, when `STUDYLAB_REQUIRE_AUTH` is set, enforces a bearer token on non‑public routes. Uses the env‑selected store. |
-| **RAG service** | [services/rag](../services/rag) | Standalone HTTP service mirroring the full route table (Phase 1–5) via a clean `Route` list. |
+| **RAG service** | [services/rag](../services/rag) | Internal HTTP service mirroring the Phase 1–5 route table via a clean `Route` list; **Phase 6** binds loopback (`RAG_BIND_HOST`) and runs behind the authenticated gateway (no auth of its own). |
 | **Solver service** | [services/solver](../services/solver) | Standalone HTTP service for solve/reveal routes. |
 | **Core engine** | [packages/studylab_core](../packages/studylab_core) | The dependency‑light brain shared by all services. |
 | **DB migrations** | [packages/db](../packages/db) | Postgres schema (production target). |
@@ -118,6 +119,10 @@ together:
   (stdlib only, no external dependency); ownership checks back per‑user authorization.
 - **MetricsCollector** ([metrics.py](../packages/studylab_core/studylab_core/metrics.py)) *(Phase 5)* —
   thread‑safe in‑process counters for the spec's observability signals, served at `/metrics`.
+- **AuthEngine self-service + RateLimiter** *(Phase 6)* — `auth.py` adds change/reset password,
+  update profile, and account deletion (cascade); [ratelimit.py](../packages/studylab_core/studylab_core/ratelimit.py)
+  is a sliding-window limiter the gateway applies (→ 429). The gateway derives the caller's identity
+  from the bearer token and enforces per‑user **ownership** (no IDOR) plus CORS and input‑size caps.
 - **NotionExporter** ([notion.py](../packages/studylab_core/studylab_core/notion.py)) — real
   Notion API call + a mock mode for local demos.
 - **Store** — [InMemoryStudyLabStore](../packages/studylab_core/studylab_core/store.py) or
@@ -235,8 +240,9 @@ together:
 | Cache (target) | **Redis** | In compose; app cache is currently in the store. |
 | Voice (target) | **Gemini** | `GeminiVoiceProvider` when `GEMINI_API_KEY` set; mock otherwise. |
 | Billing (target) | **Stripe** | `StripeBillingProvider` when `STRIPE_API_KEY` set; mock auto‑activates otherwise. |
-| Auth (Phase 5) | **PBKDF2 + HS256 JWT** (stdlib) | Enforced when `STUDYLAB_REQUIRE_AUTH=true`; secret from `STUDYLAB_JWT_SECRET`. |
+| Auth (Phase 5) | **PBKDF2 + HS256 JWT** (stdlib) | Enforced when `STUDYLAB_REQUIRE_AUTH=true`; secret from `STUDYLAB_JWT_SECRET` (fail‑fast on dev default). |
 | Observability (Phase 5) | in‑process counters at `/metrics` | Export to Prometheus/OTel in production. |
+| Hardening (Phase 6) | CORS, sliding-window rate limit, input caps, per‑user ownership | `STUDYLAB_CORS_ORIGINS` / `STUDYLAB_RATE_LIMIT` / `STUDYLAB_MAX_SOURCE_CHARS`; rag binds loopback. |
 | Monorepo | pnpm workspaces + Turborepo | [pnpm-workspace.yaml](../pnpm-workspace.yaml), [turbo.json](../turbo.json). |
 | CI | CircleCI | [.circleci/config.yml](../.circleci/config.yml). |
 
