@@ -132,6 +132,17 @@ The latest layer (Phase 6) is about being genuinely usable and safe in the real 
 > the app with no setup; flipping one environment switch turns on real login enforcement, usage
 > limits, and rate limiting for production.
 
+### 11. You can study together
+The newest layer (Phase 7) makes StudyLab multi-user:
+- **Share a notebook** with a classmate by email, as a **viewer** (can read, ask questions, and
+  generate quizzes/notes) or an **editor** (can also add and change sources).
+- **"Shared with me"** lists every notebook other people have shared with you — open one in a click.
+- **Roles** — accounts can be a student, an instructor, or an admin; admins get a users overview and
+  the system‑health metrics. (Admins are set by the operator.)
+
+> 🟢 **Privacy is preserved:** you can only open a notebook you own or that was explicitly shared with
+> you; a viewer can't modify someone else's sources.
+
 ---
 
 ## A day‑in‑the‑life example
@@ -153,8 +164,9 @@ export, durable saving of your data, the teaching whiteboard, quizzes, question 
 answer keys, auto‑graded reports, spaced‑repetition revision, a per‑topic mastery model, progress
 analytics, voice input/output, the website / YouTube / audio / Google Docs connectors, multi‑agent
 teaching, Free/Scholar/Pro plans with usage metering, real accounts (login) with per‑user privacy and
-a system‑health dashboard, **plus full account self‑service (change/reset password, delete account),
-one‑click sample onboarding, and production safety rails (rate limits, input caps, CORS)** — all
+a system‑health dashboard, full account self‑service (change/reset password, delete account),
+one‑click sample onboarding, production safety rails (rate limits, input caps, CORS), **plus
+notebook sharing (viewer/editor), a "shared with me" view, and student/instructor/admin roles** — all
 driven from a working, responsive interactive website.
 
 🚧 **Planned for later**: a **native mobile app** (the website is already responsive),

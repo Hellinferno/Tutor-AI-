@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
-  title: StudyLab Phase 0-6 API
-  version: 0.6.0
+  title: StudyLab Phase 0-7 API
+  version: 0.7.0
 servers:
   - url: /v1
 paths:
@@ -167,3 +167,20 @@ paths:
   /auth/delete:
     post:
       summary: Delete the authenticated user's account and cascade their data
+  /notebooks/{notebook_id}/shares:
+    get:
+      summary: List who a notebook is shared with (owner only)
+    post:
+      summary: Share a notebook with another user by email (viewer or editor)
+  /notebooks/{notebook_id}/shares/remove:
+    post:
+      summary: Revoke a notebook share (owner only)
+  /notebooks/shared-with-me:
+    get:
+      summary: List notebooks shared with the authenticated user
+  /admin/users:
+    get:
+      summary: List all users (admin role required)
+  /admin/metrics:
+    get:
+      summary: Observability snapshot (admin role required)

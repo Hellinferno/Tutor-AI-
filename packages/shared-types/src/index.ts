@@ -214,11 +214,25 @@ export interface UsageRecord {
 
 // ── Phase 5: auth & observability ──
 
+export type RoleType = "student" | "instructor" | "admin";
+export type ShareRole = "viewer" | "editor";
+
 export interface User {
   id: string;
   email: string;
   subject_domain: string;
+  role: RoleType;
   prefs: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface NotebookShare {
+  id: string;
+  notebook_id: string;
+  owner_id: string;
+  shared_with_id: string;
+  shared_with_email: string;
+  role: ShareRole;
   created_at: string;
 }
 

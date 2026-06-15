@@ -9,7 +9,7 @@ from .auth import AuthEngine
 from .connectors import SourceConnectorEngine
 from .eval import EvalEngine
 from .metrics import MetricsCollector
-from .models import ArtifactType, AttemptSourceType, ConnectorType, MeteredAction, PlanTier, Session
+from .models import ArtifactType, AttemptSourceType, ConnectorType, MeteredAction, NotebookShare, PlanTier, Session
 from .notion import NotionExporter
 from .ocr import extract_text_from_image_payload
 from .paper import PaperEngine
@@ -403,11 +403,20 @@ class StudyLabAPI:
     def user_id_from_token(self, token: str) -> str:
         return self.auth.user_from_token(token).id
 
-    def authorize_notebook(self, user_id: str, notebook_id: str) -> bool:
-        """Return True if the user owns the notebook; raise PermissionError otherwise."""
+    def authorize_notebook(self, user_id: str, notebook_id: str, require_edit: bool = False) -> bool:
+        """Return True if the user may access the notebook; raise PermissionError otherwise.
+
+        Access = the owner, or a user it has been shared with (Phase 7). A `viewer` share
+        grants read / ask / generate; an `editor` share also grants writes (`require_edit`).
+        """
         notebook = self.store.require_notebook(notebook_id)
-        if notebook.user_id != user_id:
+        if notebook.user_id == user_id:
+            return True
+        share = self.store.share_for(notebook_id, user_id)
+        if share is None:
             raise PermissionError("you do not have access to this notebook")
+        if require_edit and share.role != "editor":
+            raise PermissionError("you have view-only access to this notebook")
         return True
 
     def notebook_id_for_teaching(self, session_id: str) -> str:
@@ -432,6 +441,75 @@ class StudyLabAPI:
 
     def delete_account(self, user_id: str) -> dict[str, Any]:
         return self.auth.delete_account(user_id)
+
+    # ── Phase 7: Collaboration & sharing ──────────────────────────────────
+
+    def share_notebook(self, owner_id: str, notebook_id: str, email: str, role: str = "viewer") -> dict[str, Any]:
+        """Share a notebook owned by `owner_id` with another user (by email)."""
+        notebook = self.store.require_notebook(notebook_id)
+        if notebook.user_id != owner_id:
+            raise PermissionError("only the owner can share this notebook")
+        if role not in ("viewer", "editor"):
+            raise ValueError("role must be 'viewer' or 'editor'")
+        target = self.store.get_user_by_email((email or "").strip().lower())
+        if target is None:
+            raise KeyError(f"No user with email: {email}")
+        if target.id == owner_id:
+            raise ValueError("you already own this notebook")
+        existing = self.store.share_for(notebook_id, target.id)
+        if existing is not None:
+            existing.role = role
+            self.store.remove_share(existing.id)
+            self.store.add_share(existing)
+            return self.store.to_plain(existing)
+        share = NotebookShare(
+            id=self.store.next_id("share"),
+            notebook_id=notebook_id,
+            owner_id=owner_id,
+            shared_with_id=target.id,
+            shared_with_email=target.email,
+            role=role,
+        )
+        return self.store.to_plain(self.store.add_share(share))
+
+    def unshare_notebook(self, owner_id: str, notebook_id: str, share_id: str) -> dict[str, Any]:
+        notebook = self.store.require_notebook(notebook_id)
+        if notebook.user_id != owner_id:
+            raise PermissionError("only the owner can manage shares for this notebook")
+        self.store.remove_share(share_id)
+        return {"ok": True, "removed": share_id}
+
+    def list_shares(self, owner_id: str, notebook_id: str) -> dict[str, Any]:
+        notebook = self.store.require_notebook(notebook_id)
+        if notebook.user_id != owner_id:
+            raise PermissionError("only the owner can list shares for this notebook")
+        return {"shares": [self.store.to_plain(s) for s in self.store.shares_for_notebook(notebook_id)]}
+
+    def list_shared_with_me(self, user_id: str) -> dict[str, Any]:
+        items = []
+        for share in self.store.shares_for_user(user_id):
+            notebook = self.store.notebooks.get(share.notebook_id)
+            if notebook is None:
+                continue
+            items.append({
+                "share_id": share.id,
+                "notebook_id": share.notebook_id,
+                "title": notebook.title,
+                "role": share.role,
+                "owner_id": share.owner_id,
+            })
+        return {"shared_with_me": items}
+
+    # ── Phase 7: Roles / admin ────────────────────────────────────────────
+
+    def require_admin(self, user_id: str) -> None:
+        user = self.store.require_user(user_id)
+        if user.role != "admin":
+            raise PermissionError("admin role required")
+
+    def list_users(self, requester_id: str) -> dict[str, Any]:
+        self.require_admin(requester_id)
+        return {"users": [self.auth.public_user(u) for u in self.store.all_users()]}
 
     # ── Phase 5: Observability ────────────────────────────────────────────
 

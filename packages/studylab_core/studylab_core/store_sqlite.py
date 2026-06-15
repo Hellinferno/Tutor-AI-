@@ -17,6 +17,7 @@ from .models import (
     EvalReport,
     MultiAgentTeachingSession,
     Notebook,
+    NotebookShare,
     QuestionPaper,
     Quiz,
     QuizQuestion,
@@ -43,7 +44,17 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
   subject_domain TEXT NOT NULL DEFAULT 'ai_ds',
+  role TEXT NOT NULL DEFAULT 'student',
   prefs TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS notebook_shares (
+  id TEXT PRIMARY KEY,
+  notebook_id TEXT NOT NULL,
+  owner_id TEXT NOT NULL,
+  shared_with_id TEXT NOT NULL,
+  shared_with_email TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'viewer',
   created_at TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS notebooks (
@@ -228,6 +239,8 @@ CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions (user_id, notebook_id);
 CREATE INDEX IF NOT EXISTS idx_masteries_profile ON topic_masteries (student_profile_id);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_user ON subscriptions (user_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_usage_user_period ON usage_records (user_id, billing_period);
+CREATE INDEX IF NOT EXISTS idx_shares_notebook ON notebook_shares (notebook_id);
+CREATE INDEX IF NOT EXISTS idx_shares_user ON notebook_shares (shared_with_id);
 """
 
 
@@ -344,6 +357,9 @@ class SqliteStudyLabStore:
         sess_cols = {row["name"] for row in self._conn.execute("PRAGMA table_info(sessions)").fetchall()}
         if "kind" not in sess_cols:
             self._conn.execute("ALTER TABLE sessions ADD COLUMN kind TEXT NOT NULL DEFAULT 'study'")
+        user_cols = {row["name"] for row in self._conn.execute("PRAGMA table_info(users)").fetchall()}
+        if user_cols and "role" not in user_cols:
+            self._conn.execute("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'student'")
 
     # -- identity & serialization -------------------------------------------------
 
@@ -364,9 +380,9 @@ class SqliteStudyLabStore:
     def add_user(self, user: User) -> User:
         with self._lock:
             self._conn.execute(
-                "INSERT INTO users (id, email, password_hash, subject_domain, prefs, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
-                (user.id, user.email, user.password_hash, user.subject_domain, json.dumps(user.prefs), user.created_at),
+                "INSERT INTO users (id, email, password_hash, subject_domain, role, prefs, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (user.id, user.email, user.password_hash, user.subject_domain, user.role, json.dumps(user.prefs), user.created_at),
             )
             self._conn.commit()
         return user
@@ -374,11 +390,61 @@ class SqliteStudyLabStore:
     def save_user(self, user: User) -> User:
         with self._lock:
             self._conn.execute(
-                "UPDATE users SET email=?, password_hash=?, subject_domain=?, prefs=? WHERE id=?",
-                (user.email, user.password_hash, user.subject_domain, json.dumps(user.prefs), user.id),
+                "UPDATE users SET email=?, password_hash=?, subject_domain=?, role=?, prefs=? WHERE id=?",
+                (user.email, user.password_hash, user.subject_domain, user.role, json.dumps(user.prefs), user.id),
             )
             self._conn.commit()
         return user
+
+    def all_users(self) -> list[User]:
+        with self._lock:
+            rows = self._conn.execute("SELECT * FROM users ORDER BY created_at").fetchall()
+        return [self._row_to_user(r) for r in rows]
+
+    # ── Phase 7: Notebook sharing ────────────────────────────────────────
+
+    def add_share(self, share: NotebookShare) -> NotebookShare:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO notebook_shares (id, notebook_id, owner_id, shared_with_id, shared_with_email, role, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (share.id, share.notebook_id, share.owner_id, share.shared_with_id, share.shared_with_email, share.role, share.created_at),
+            )
+            self._conn.commit()
+        return share
+
+    def remove_share(self, share_id: str) -> None:
+        with self._lock:
+            self._conn.execute("DELETE FROM notebook_shares WHERE id=?", (share_id,))
+            self._conn.commit()
+
+    def shares_for_notebook(self, notebook_id: str) -> list[NotebookShare]:
+        with self._lock:
+            rows = self._conn.execute("SELECT * FROM notebook_shares WHERE notebook_id=?", (notebook_id,)).fetchall()
+        return [self._row_to_share(r) for r in rows]
+
+    def shares_for_user(self, user_id: str) -> list[NotebookShare]:
+        with self._lock:
+            rows = self._conn.execute("SELECT * FROM notebook_shares WHERE shared_with_id=?", (user_id,)).fetchall()
+        return [self._row_to_share(r) for r in rows]
+
+    def share_for(self, notebook_id: str, user_id: str) -> NotebookShare | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT * FROM notebook_shares WHERE notebook_id=? AND shared_with_id=?", (notebook_id, user_id)
+            ).fetchone()
+        return self._row_to_share(row) if row else None
+
+    def _row_to_share(self, row: sqlite3.Row) -> NotebookShare:
+        return NotebookShare(
+            id=row["id"],
+            notebook_id=row["notebook_id"],
+            owner_id=row["owner_id"],
+            shared_with_id=row["shared_with_id"],
+            shared_with_email=row["shared_with_email"],
+            role=row["role"],
+            created_at=row["created_at"],
+        )
 
     def require_user(self, user_id: str) -> User:
         user = self._get_user(user_id)
@@ -437,6 +503,12 @@ class SqliteStudyLabStore:
             for table in ("attempts", "revision_cards", "sessions", "student_profiles",
                           "subscriptions", "usage_records"):
                 self._conn.execute(f"DELETE FROM {table} WHERE user_id=?", (user_id,))
+            # Shares the user owns/received, plus any on their (now-deleted) notebooks.
+            self._conn.execute(
+                "DELETE FROM notebook_shares WHERE owner_id=? OR shared_with_id=?", (user_id, user_id)
+            )
+            if notebook_ids:
+                self._conn.execute(f"DELETE FROM notebook_shares WHERE notebook_id IN ({placeholders})", notebook_ids)
             self._conn.execute("DELETE FROM users WHERE id=?", (user_id,))
             self._conn.commit()
 
@@ -1113,11 +1185,13 @@ class SqliteStudyLabStore:
         )
 
     def _row_to_user(self, row: sqlite3.Row) -> User:
+        keys = row.keys()
         return User(
             id=row["id"],
             email=row["email"],
             password_hash=row["password_hash"],
             subject_domain=row["subject_domain"],
+            role=row["role"] if "role" in keys else "student",
             prefs=json.loads(row["prefs"]),
             created_at=row["created_at"],
         )

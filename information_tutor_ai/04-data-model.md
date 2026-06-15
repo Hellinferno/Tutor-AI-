@@ -41,6 +41,8 @@ answer_keys >── quiz | paper   (source_id + source_type)    (Phase 2)
 
 users ──< subscriptions        (latest row = current plan)   (Phase 4)
 users ──< usage_records        (one per metered action)       (Phase 4)
+users.role (student|instructor|admin)                         (Phase 7)
+notebooks ──< notebook_shares >── users (shared_with)          (Phase 7)
 ```
 `└─<` = one‑to‑many, `└─1` = one‑to‑one. (`users` and `notebooks` may be null on some rows in the
 current local flow, which defaults the owner to `demo-user`.)
@@ -192,6 +194,24 @@ there is no sessions/tokens table; observability metrics are in‑process counte
 
 ---
 
+## Phase 7 tables (collaboration & roles)
+
+Added in [007_phase7_sharing_roles.sql](../packages/db/migrations/007_phase7_sharing_roles.sql)
+(Postgres) and mirrored in the SQLite store.
+
+### `users.role`
+A `role` column on `users` (`student` | `instructor` | `admin`, default `student`). Admin is granted
+at registration to emails in `STUDYLAB_ADMIN_EMAILS`; admin-only routes (`/v1/admin/*`) check it.
+
+### `notebook_shares`
+One row per (notebook, recipient): `id`, `notebook_id`, `owner_id`, `shared_with_id`,
+`shared_with_email`, `role` (`viewer` | `editor`), `created_at`; unique on
+`(notebook_id, shared_with_id)`. A `viewer` share grants read / ask / generate; an `editor` share
+also grants source writes. `authorize_notebook(require_edit=…)` allows the owner **or** a share of
+sufficient role. Shares cascade-delete with the notebook and with either party's account deletion.
+
+---
+
 ## Enumerated types
 
 | Type | Values |
@@ -210,6 +230,8 @@ there is no sessions/tokens table; observability metrics are in‑process counte
 | `metered_action` (Phase 4) | `ask`, `solve`, `quiz`, `paper`, `artifact`, `source_import`, `teaching` |
 | `subscription.status` (Phase 4) | `active`, `past_due`, `canceled` |
 | `subject_domain` (Phase 5, user) | `ai_ds`, `analytics`, `finance` |
+| `role` (Phase 7, user) | `student`, `instructor`, `admin` |
+| `share.role` (Phase 7) | `viewer`, `editor` |
 
 ---
 

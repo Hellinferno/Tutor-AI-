@@ -14,11 +14,14 @@ import type {
   MetricsSnapshot,
   MultiAgentTeachingSession,
   Notebook,
+  NotebookShare,
   Plan,
   PlanTier,
   QuestionPaper,
   Quiz,
   RevisionCard,
+  SharedWithItem,
+  ShareRole,
   SolveResponse,
   SolveStep,
   Subscription,
@@ -302,6 +305,23 @@ export function resetPassword(token: string, password: string): Promise<AuthUser
 
 export function deleteAccount(): Promise<{ ok: boolean; deleted: string }> {
   return post<{ ok: boolean; deleted: string }>("/auth/delete", {});
+}
+
+// ── Phase 7: Collaboration & sharing ──
+export function shareNotebook(notebookId: string, email: string, role: ShareRole): Promise<NotebookShare> {
+  return post<NotebookShare>(`/notebooks/${notebookId}/shares`, { email, role });
+}
+
+export function unshareNotebook(notebookId: string, shareId: string): Promise<{ ok: boolean; removed: string }> {
+  return post<{ ok: boolean; removed: string }>(`/notebooks/${notebookId}/shares/remove`, { share_id: shareId });
+}
+
+export function listShares(notebookId: string): Promise<{ shares: NotebookShare[] }> {
+  return get<{ shares: NotebookShare[] }>(`/notebooks/${notebookId}/shares`);
+}
+
+export function listSharedWithMe(): Promise<{ shared_with_me: SharedWithItem[] }> {
+  return get<{ shared_with_me: SharedWithItem[] }>("/notebooks/shared-with-me");
 }
 
 export function getMetrics(): Promise<MetricsSnapshot> {

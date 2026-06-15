@@ -1,6 +1,6 @@
 # 10 — Testing & Evaluation 🔵
 
-The project's quality gate: what runs, what it proves, and the Phase 1–6 acceptance criteria.
+The project's quality gate: what runs, what it proves, and the Phase 1–7 acceptance criteria.
 
 > 🟢 **Plain English:** before code is considered "done," it must pass automatic checks. There are
 > two: a **test suite** (does each feature behave correctly?) and an **eval gate** (does the solver
@@ -12,7 +12,7 @@ The project's quality gate: what runs, what it proves, and the Phase 1–6 accep
 
 | Command | What it checks | Current result |
 |---|---|---|
-| `python -m unittest discover tests` | 134 unit/integration tests | ✅ 134 passed |
+| `python -m unittest discover tests` | 150 unit/integration tests | ✅ 150 passed |
 | `python packages/eval/run_eval.py` | solver verification gate | ✅ 15 cases, `false_verified_rate=0` |
 | `python -m compileall packages services` | every module byte‑compiles (per [Instructions/12](../Instructions/12-testing-strategy.md)) | ✅ clean |
 | `cd apps/web && npm run build` | web compiles + type‑checks + prerenders | ✅ green (interactive app) |
@@ -31,7 +31,7 @@ push — see [.circleci/config.yml](../.circleci/config.yml).
 
 ---
 
-## The test suite (134 tests)
+## The test suite (150 tests)
 
 ### `tests/test_phase1_core.py` — 12 tests
 - **Chunking**: offsets are stable (a chunk's `[start:end]` slice reproduces its text).
@@ -114,9 +114,21 @@ push — see [.circleci/config.yml](../.circleci/config.yml).
   not enforced; explicit `STUDYLAB_DEV_INSECURE` override.
 - **Robustness**: a malformed bearer raises `AuthError` (→ 401), never an uncaught 500.
 
-> The gateway HTTP routing for **all Phase 2–6 endpoints** is additionally smoke‑tested end‑to‑end
+### `tests/test_phase7_core.py` — 16 tests
+- **Sharing**: share/unshare, owner lists shares, "shared with me"; re-sharing the same email
+  **updates** the role (no duplicate); unknown email → `KeyError`, bad role → `ValueError`, non-owner
+  share/list → `PermissionError`.
+- **Authorization**: owner has full access; a `viewer` can read but not edit (raises); an `editor`
+  can edit; a non-shared stranger is denied.
+- **Roles/admin**: admin is granted via `STUDYLAB_ADMIN_EMAILS`; an admin can `list_users` (no
+  hashes); a non-admin cannot.
+- **Persistence**: a share and a user's role survive a SQLite reopen; deleting the owner removes the
+  shares.
+
+> The gateway HTTP routing for **all Phase 2–7 endpoints** is additionally smoke‑tested end‑to‑end
 > against a live `ThreadingHTTPServer`: every route returns 200; with auth enforced, ownership/IDOR
-> attempts return 403, missing/malformed tokens 401, over‑quota 402, and `/metrics` is gated; CORS
+> attempts return 403, missing/malformed tokens 401, over‑quota 402, `/metrics` is gated, **a viewer
+> share can read but not upload (403), an editor can, and admin routes reject non-admins (403)**; CORS
 > preflight returns 204. The web app passes `tsc --noEmit` + `next build`.
 
 ---
@@ -264,3 +276,24 @@ account self-service — and folds in the fixes from the security reviews.
 cascade orphans, stale rate-limit key) plus the automated IDOR/dev-secret sweeps were all fixed and
 re-verified. Remaining later work: native mobile, horizontal-scaling infra, OAuth/SSO, and wiring a
 reset-email provider — see [11-current-status.md](11-current-status.md).
+
+---
+
+## Phase 7 acceptance gate (collaboration, sharing & roles)
+
+Phase 7 extends the Phase 6 ownership model into multi-user collaboration.
+
+| Gate criterion | Status |
+|---|---|
+| Notebook sharing | ✅ (`share_notebook`/`unshare_notebook`/`list_shares`; viewer & editor roles) |
+| "Shared with me" | ✅ (`list_shared_with_me` → notebooks others shared with the caller) |
+| Share-aware authorization | ✅ (`authorize_notebook(require_edit)`: owner or share; viewer = read/ask/generate, editor = +write) |
+| Roles | ✅ (`student`/`instructor`/`admin`; admin granted via `STUDYLAB_ADMIN_EMAILS`) |
+| Admin-only routes | ✅ (`/v1/admin/users`, `/v1/admin/metrics` → 403 for non-admins) |
+| Deletion integrity | ✅ (shares cascade with the notebook and with either party's account) |
+| Tests pass | ✅ 16 Phase 7 tests + gateway HTTP collaboration smoke test |
+
+➡️ **The Phase 7 gate passes.** Sharing/admin routes require a logged-in user (bearer token); the
+single-user demo experience is unchanged when auth is off. Remaining later work is unchanged: native
+mobile, horizontal-scaling infra, OAuth/SSO, and reset-email delivery —
+see [11-current-status.md](11-current-status.md).

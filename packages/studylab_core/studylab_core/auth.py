@@ -81,6 +81,12 @@ def _truthy(value: str | None) -> bool:
     return (value or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _role_for_email(email: str) -> str:
+    """Grant the admin role to emails listed in STUDYLAB_ADMIN_EMAILS (comma-separated)."""
+    admins = {e.strip().lower() for e in (os.getenv("STUDYLAB_ADMIN_EMAILS") or "").split(",") if e.strip()}
+    return "admin" if email.lower() in admins else "student"
+
+
 def _mock_email_enabled() -> bool:
     """Reset tokens are only returned in the API response in mock-email mode.
 
@@ -117,6 +123,7 @@ class AuthEngine:
             email=normalized,
             password_hash=hash_password(password),
             subject_domain=subject_domain,
+            role=_role_for_email(normalized),
         )
         return self.store.add_user(user)
 
@@ -246,6 +253,7 @@ class AuthEngine:
             "id": user.id,
             "email": user.email,
             "subject_domain": user.subject_domain,
+            "role": user.role,
             "prefs": user.prefs,
             "created_at": user.created_at,
         }

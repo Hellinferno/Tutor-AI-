@@ -57,8 +57,8 @@ explainer at the top of each section.
 
 | Component | Path | Role |
 |---|---|---|
-| **Web app** | [apps/web](../apps/web) | Next.js 15 / React 19 UI — 16 **interactive, responsive** panels (account, sources, connectors, ask, teach, multi‑agent, solve, quiz, paper, artifacts, report, revision, analytics, voice, plans, metrics) wired to the gateway via [lib/api.ts](../apps/web/lib/api.ts) and a shared [NotebookProvider](../apps/web/lib/notebook-context.tsx). |
-| **Gateway service** | [services/gateway](../services/gateway) | HTTP front door exposing the full API (Phase 1–4 + Phase 5 auth/`/metrics`). Maps engine errors to status codes (401/402/403/404/400) and, when `STUDYLAB_REQUIRE_AUTH` is set, enforces a bearer token on non‑public routes. Uses the env‑selected store. |
+| **Web app** | [apps/web](../apps/web) | Next.js 15 / React 19 UI — 17 **interactive, responsive** panels (account, sharing, sources, connectors, ask, teach, multi‑agent, solve, quiz, paper, artifacts, report, revision, analytics, voice, plans, metrics) wired to the gateway via [lib/api.ts](../apps/web/lib/api.ts) and a shared [NotebookProvider](../apps/web/lib/notebook-context.tsx). |
+| **Gateway service** | [services/gateway](../services/gateway) | HTTP front door exposing the full API (Phase 1–7). Maps engine errors to status codes (401/402/403/404/400/429) and, when `STUDYLAB_REQUIRE_AUTH` is set, enforces a bearer token + per‑user ownership (honoring shares). Uses the env‑selected store. |
 | **RAG service** | [services/rag](../services/rag) | Internal HTTP service mirroring the Phase 1–5 route table via a clean `Route` list; **Phase 6** binds loopback (`RAG_BIND_HOST`) and runs behind the authenticated gateway (no auth of its own). |
 | **Solver service** | [services/solver](../services/solver) | Standalone HTTP service for solve/reveal routes. |
 | **Core engine** | [packages/studylab_core](../packages/studylab_core) | The dependency‑light brain shared by all services. |
@@ -123,6 +123,10 @@ together:
   update profile, and account deletion (cascade); [ratelimit.py](../packages/studylab_core/studylab_core/ratelimit.py)
   is a sliding-window limiter the gateway applies (→ 429). The gateway derives the caller's identity
   from the bearer token and enforces per‑user **ownership** (no IDOR) plus CORS and input‑size caps.
+- **Sharing & roles** *(Phase 7)* — `NotebookShare` + store methods let an owner share a notebook
+  (`viewer`/`editor`); `authorize_notebook(require_edit=…)` now allows the owner **or** a shared user,
+  so every notebook‑scoped route honors shares. Users carry a `role` (`student`/`instructor`/`admin`);
+  admin is granted via `STUDYLAB_ADMIN_EMAILS` and gates `/v1/admin/*`.
 - **NotionExporter** ([notion.py](../packages/studylab_core/studylab_core/notion.py)) — real
   Notion API call + a mock mode for local demos.
 - **Store** — [InMemoryStudyLabStore](../packages/studylab_core/studylab_core/store.py) or
@@ -243,6 +247,7 @@ together:
 | Auth (Phase 5) | **PBKDF2 + HS256 JWT** (stdlib) | Enforced when `STUDYLAB_REQUIRE_AUTH=true`; secret from `STUDYLAB_JWT_SECRET` (fail‑fast on dev default). |
 | Observability (Phase 5) | in‑process counters at `/metrics` | Export to Prometheus/OTel in production. |
 | Hardening (Phase 6) | CORS, sliding-window rate limit, input caps, per‑user ownership | `STUDYLAB_CORS_ORIGINS` / `STUDYLAB_RATE_LIMIT` / `STUDYLAB_MAX_SOURCE_CHARS`; rag binds loopback. |
+| Collaboration (Phase 7) | notebook sharing (viewer/editor) + roles (student/instructor/admin) | Share-aware `authorize_notebook`; admin via `STUDYLAB_ADMIN_EMAILS`. |
 | Monorepo | pnpm workspaces + Turborepo | [pnpm-workspace.yaml](../pnpm-workspace.yaml), [turbo.json](../turbo.json). |
 | CI | CircleCI | [.circleci/config.yml](../.circleci/config.yml). |
 

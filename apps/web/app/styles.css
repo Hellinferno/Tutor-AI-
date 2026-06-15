@@ -558,6 +558,17 @@ sup {
   font-size: 13px;
 }
 
+.linkBtn {
+  background: none;
+  border: none;
+  color: var(--blue);
+  cursor: pointer;
+  font-size: 12px;
+  min-height: 0;
+  padding: 0;
+  text-decoration: underline;
+}
+
 .muted13 {
   color: var(--muted);
   font-size: 13px;

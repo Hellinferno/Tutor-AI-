@@ -1,8 +1,8 @@
-# StudyLab Phase 0-6
+# StudyLab Phase 0-7
 
 NotebookLM-inspired AI study lab for AI, data science, analytics, and finance learners.
 
-This repository implements the Phase 0-6 vertical slice (134 tests, `false_verified_rate=0`):
+This repository implements the Phase 0-7 vertical slice (150 tests, `false_verified_rate=0`):
 
 - notebooks and source upload
 - source guide generation
@@ -21,9 +21,10 @@ This repository implements the Phase 0-6 vertical slice (134 tests, `false_verif
 - **Phase 4** pricing & economics (Free/Scholar/Pro plans, usage metering, quota checks, Stripe seam)
 - **Phase 5** auth & observability: email/password auth (PBKDF2 + stateless HS256 JWT), per-user authorization, env-gated quota enforcement (HTTP 402), and a `/metrics` observability endpoint
 - **Phase 6** production hardening + user readiness: per-user ownership (IDOR-safe), CORS, rate limiting (HTTP 429), input-size caps, `/ready`, account self-service (change/reset password, edit profile, delete account + cascade), and one-click sample onboarding
+- **Phase 7** collaboration: notebook sharing (viewer/editor), "shared with me", share-aware authorization, and student/instructor/admin roles with admin-only routes
 - durable SQLite persistence (opt-in) alongside the in-memory store
 - runnable gateway, rag, and solver services with Dockerfiles and Compose
-- an interactive, responsive Next.js web app (16 panels) wired to the gateway
+- an interactive, responsive Next.js web app (17 panels) wired to the gateway
 - a prompt template library with a loader
 - CI, migrations, fixtures, and tests
 
@@ -87,7 +88,9 @@ Phase 4 adds source connectors (website / YouTube / audio / Google Doc / Slides 
 
 Phase 5 adds auth & observability: first-party email/password auth (PBKDF2-HMAC-SHA256 hashing, stateless HS256 JWTs — stdlib only), per-user authorization (notebook ownership), quota enforcement (over-limit metered actions return HTTP 402), and an in-process `/metrics` observability endpoint.
 
-Phase 6 adds production hardening + user readiness: the gateway derives identity from the bearer token and enforces per-user ownership (IDOR-safe), with CORS + preflight, sliding-window rate limiting (HTTP 429), source input-size caps, a `/ready` probe, and a fail-fast JWT secret. Users get full account self-service — change/reset password, edit profile, and delete their account (cascading all their data) — plus one-click "Load sample" onboarding. Auth, quota, and rate-limit enforcement are gated behind env flags (`STUDYLAB_REQUIRE_AUTH` / `STUDYLAB_ENFORCE_QUOTAS` / `STUDYLAB_RATE_LIMIT`), off by default, so the app stays runnable offline. The full surface is documented in `docs/openapi.phase1.yml` and `information_tutor_ai/`.
+Phase 6 adds production hardening + user readiness: the gateway derives identity from the bearer token and enforces per-user ownership (IDOR-safe), with CORS + preflight, sliding-window rate limiting (HTTP 429), source input-size caps, a `/ready` probe, and a fail-fast JWT secret. Users get full account self-service — change/reset password, edit profile, and delete their account (cascading all their data) — plus one-click "Load sample" onboarding. Auth, quota, and rate-limit enforcement are gated behind env flags (`STUDYLAB_REQUIRE_AUTH` / `STUDYLAB_ENFORCE_QUOTAS` / `STUDYLAB_RATE_LIMIT`), off by default, so the app stays runnable offline.
+
+Phase 7 adds collaboration: an owner can share a notebook with another user as a viewer (read / ask / generate) or editor (also add/modify sources); `authorize_notebook` honors shares so every notebook-scoped route works for collaborators, and a "shared with me" view lists notebooks others shared with you. Users carry a role (student / instructor / admin); admin is granted via `STUDYLAB_ADMIN_EMAILS` and gates `/v1/admin/*` (users overview + metrics). The full surface is documented in `docs/openapi.phase1.yml` and `information_tutor_ai/`.
 
 ## RAG Architecture
 

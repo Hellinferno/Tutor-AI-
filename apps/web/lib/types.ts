@@ -336,12 +336,34 @@ export interface SubscribeResult {
 
 // ── Phase 5: Auth & observability ──
 
+export type RoleType = "student" | "instructor" | "admin";
+export type ShareRole = "viewer" | "editor";
+
 export interface AuthUser {
   id: string;
   email: string;
   subject_domain: string;
+  role: RoleType;
   prefs: Record<string, unknown>;
   created_at: string;
+}
+
+export interface NotebookShare {
+  id: string;
+  notebook_id: string;
+  owner_id: string;
+  shared_with_id: string;
+  shared_with_email: string;
+  role: ShareRole;
+  created_at: string;
+}
+
+export interface SharedWithItem {
+  share_id: string;
+  notebook_id: string;
+  title: string;
+  role: ShareRole;
+  owner_id: string;
 }
 
 export interface AuthResult {

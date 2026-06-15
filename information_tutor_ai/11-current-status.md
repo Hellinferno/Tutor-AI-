@@ -9,7 +9,7 @@ is **not built yet**. Keep this document accurate as the source of truth on proj
 
 ---
 
-## ✅ Done, working, and tested (Phase 0 → Phase 6)
+## ✅ Done, working, and tested (Phase 0 → Phase 7)
 
 | Area | State |
 |---|---|
@@ -17,9 +17,9 @@ is **not built yet**. Keep this document accurate as the source of truth on proj
 | Local env + `.env.example` | ✅ |
 | Docker Compose (postgres, redis, qdrant, gateway, rag, solver, shared volume) | ✅ |
 | Dockerfiles for gateway, rag, solver | ✅ |
-| DB migration (full Phase 1–6 schema) | ✅ written |
+| DB migration (full Phase 1–7 schema) | ✅ written |
 | Gateway + rag + solver services (runnable, `/health` + `/ready` + functional routes) | ✅ |
-| Shared API contracts (OpenAPI + TypeScript types, Phase 0–6) | ✅ |
+| Shared API contracts (OpenAPI + TypeScript types, Phase 0–7) | ✅ |
 | Notebook creation, source upload, source guides | ✅ |
 | Chunking with stable character offsets | ✅ |
 | Hybrid retrieval (sparse + dense + rerank) | ✅ (local impl) |
@@ -50,10 +50,12 @@ is **not built yet**. Keep this document accurate as the source of truth on proj
 | **Phase 6 — Account self-service** (change/reset password, edit profile, delete account + cascade) | ✅ |
 | **Phase 6 — Hardening** (CORS + preflight, rate limiting → 429, input-size caps, `/ready`, fail-fast JWT secret) | ✅ |
 | **Phase 6 — Onboarding** (one-click "Load sample" notebook; account settings UI) | ✅ |
-| **Interactive web app** (Next 15) — all 16 panels wired to the gateway, responsive/mobile, no static mockups | ✅ |
-| Test suite (134 tests) | ✅ |
+| **Phase 7 — Notebook sharing** (share with viewer/editor; "shared with me"; view‑vs‑edit access) | ✅ |
+| **Phase 7 — Roles** (student / instructor / admin; admin‑only `/v1/admin/*`; `STUDYLAB_ADMIN_EMAILS`) | ✅ |
+| **Interactive web app** (Next 15) — all 17 panels wired to the gateway, responsive/mobile, no static mockups | ✅ |
+| Test suite (150 tests) | ✅ |
 
-**The Phase 1–6 acceptance gates pass.** See [10-testing-and-eval.md](10-testing-and-eval.md).
+**The Phase 1–7 acceptance gates pass.** See [10-testing-and-eval.md](10-testing-and-eval.md).
 
 ---
 
@@ -64,7 +66,7 @@ integration needs an external service or credentials (and can't be runtime‑ver
 
 | Capability | What exists now | To go live |
 |---|---|---|
-| **Postgres persistence** | Full SQL migration (Phase 1–6); SQLite store mirrors the contract | Add a Postgres-backed store using `DATABASE_URL` |
+| **Postgres persistence** | Full SQL migration (Phase 1–7); SQLite store mirrors the contract | Add a Postgres-backed store using `DATABASE_URL` |
 | **Qdrant vector search** | `QdrantHybridSearchAdapter` (payload + query plan); local hybrid retriever is the live path | Connect a running Qdrant via `QDRANT_URL` |
 | **Real embeddings** | `EmbeddingProvider` interface; `LocalHashEmbeddingProvider` default | Plug in OpenAI / Voyage / local bge‑e5 |
 | **Real OCR** | OCR adapter seam (local placeholder) | Connect an OCR provider |
@@ -87,12 +89,11 @@ integration needs an external service or credentials (and can't be runtime‑ver
 ## ⚪ Not built yet (beyond the planned phases)
 
 The specs ([Instructions/10-development-phases.md](../Instructions/10-development-phases.md)) define
-Phases 0–4; **Phase 5 (auth, authorization, quota enforcement, observability) and Phase 6
-(production hardening + user readiness: CORS, rate limiting, input caps, account self‑service,
-onboarding) were added on top** to close the remaining gaps for shipping to real users — starting
-with the "Full production auth" item from
-[Instructions/09-engineering-scope-definition.md](../Instructions/09-engineering-scope-definition.md).
-What still remains as a later concern:
+Phases 0–4; **Phases 5–7 were added on top** to ship to real users: Phase 5 (auth, authorization,
+quota enforcement, observability), Phase 6 (production hardening + user readiness: CORS, rate
+limiting, input caps, account self‑service, onboarding), and Phase 7 (collaboration — notebook
+sharing with viewer/editor roles, "shared with me", and student/instructor/admin roles). What still
+remains as a later concern:
 
 - **Native mobile apps** (iOS/Android) — the web app is fully **responsive** (works on phones), but
   there is no native shell yet.
@@ -114,13 +115,14 @@ What still remains as a later concern:
 
 ## One‑line summary
 
-> **Phase 0 → Phase 6 are complete, tested (134 tests), and self‑contained, and the web app is fully
-> wired to the gateway (16 responsive panels, no static mockups).** Phase 5 added first‑party auth
+> **Phase 0 → Phase 7 are complete, tested (150 tests), and self‑contained, and the web app is fully
+> wired to the gateway (17 responsive panels, no static mockups).** Phase 5 added first‑party auth
 > (PBKDF2 + JWT), per‑user authorization, env‑gated quota enforcement, and a `/metrics` endpoint;
 > Phase 6 added production hardening (CORS, rate limiting, input‑size caps, `/ready`, IDOR‑safe
-> ownership checks, fail‑fast JWT secret) and user readiness (account self‑service — change/reset
-> password, edit profile, delete account with cascade — plus one‑click sample onboarding). Postgres,
-> Qdrant, real embeddings/OCR, Redis, the real voice provider, connector fetch‑workers, Stripe
-> billing, a production metrics backend, and reset‑email delivery are intentionally left as env‑gated
-> adapters; auth / quota / rate‑limit *enforcement* is built but off by default. Native mobile,
-> horizontal‑scaling infra, and OAuth/SSO remain later concerns.
+> ownership checks, fail‑fast JWT secret) and user readiness (account self‑service + sample
+> onboarding); Phase 7 added collaboration — notebook **sharing** (viewer/editor) with a
+> "shared with me" view, share‑aware authorization, and **roles** (student/instructor/admin) with
+> admin‑only routes. Postgres, Qdrant, real embeddings/OCR, Redis, the real voice provider, connector
+> fetch‑workers, Stripe billing, a production metrics backend, and reset‑email delivery are
+> intentionally left as env‑gated adapters; auth / quota / rate‑limit *enforcement* is built but off
+> by default. Native mobile, horizontal‑scaling infra, and OAuth/SSO remain later concerns.

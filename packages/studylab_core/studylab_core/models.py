@@ -15,6 +15,8 @@ AttemptSourceType = Literal["quiz", "paper"]
 Difficulty = Literal["easy", "medium", "hard"]
 PlanTier = Literal["free", "scholar", "pro"]
 MeteredAction = Literal["ask", "solve", "quiz", "paper", "artifact", "source_import", "teaching"]
+RoleType = Literal["student", "instructor", "admin"]
+ShareRole = Literal["viewer", "editor"]
 
 
 def utc_now() -> str:
@@ -27,7 +29,19 @@ class User:
     email: str
     password_hash: str
     subject_domain: str = "ai_ds"  # ai_ds, analytics, finance
+    role: RoleType = "student"  # student, instructor, admin
     prefs: dict[str, Any] = field(default_factory=dict)
+    created_at: str = field(default_factory=utc_now)
+
+
+@dataclass
+class NotebookShare:
+    id: str
+    notebook_id: str
+    owner_id: str
+    shared_with_id: str
+    shared_with_email: str
+    role: ShareRole  # viewer (read + ask + generate), editor (also add/modify sources)
     created_at: str = field(default_factory=utc_now)
 
 

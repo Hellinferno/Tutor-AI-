@@ -10,6 +10,7 @@ from .models import (
     Attempt,
     EvalReport,
     Notebook,
+    NotebookShare,
     QuestionPaper,
     Quiz,
     QuizQuestion,
@@ -64,6 +65,9 @@ class InMemoryStudyLabStore:
         self.subscriptions: dict[str, Subscription] = {}
         self.usage_records: dict[str, UsageRecord] = {}
 
+        # Phase 7 stores (collaboration & sharing)
+        self.notebook_shares: dict[str, NotebookShare] = {}
+
     def next_id(self, prefix: str) -> str:
         return f"{prefix}_{uuid4().hex[:12]}"
 
@@ -87,6 +91,30 @@ class InMemoryStudyLabStore:
         for user in self.users.values():
             if user.email == email:
                 return user
+        return None
+
+    def all_users(self) -> list[User]:
+        return sorted(self.users.values(), key=lambda u: u.created_at)
+
+    # ── Phase 7: Notebook sharing ────────────────────────────────────────
+
+    def add_share(self, share: NotebookShare) -> NotebookShare:
+        self.notebook_shares[share.id] = share
+        return share
+
+    def remove_share(self, share_id: str) -> None:
+        self.notebook_shares.pop(share_id, None)
+
+    def shares_for_notebook(self, notebook_id: str) -> list[NotebookShare]:
+        return [s for s in self.notebook_shares.values() if s.notebook_id == notebook_id]
+
+    def shares_for_user(self, user_id: str) -> list[NotebookShare]:
+        return [s for s in self.notebook_shares.values() if s.shared_with_id == user_id]
+
+    def share_for(self, notebook_id: str, user_id: str) -> NotebookShare | None:
+        for s in self.notebook_shares.values():
+            if s.notebook_id == notebook_id and s.shared_with_id == user_id:
+                return s
         return None
 
     def delete_user(self, user_id: str) -> None:
@@ -125,6 +153,8 @@ class InMemoryStudyLabStore:
         _drop(self.topic_masteries, lambda v: v.student_profile_id in profile_ids)
         _drop(self.subscriptions, lambda v: v.user_id == user_id)
         _drop(self.usage_records, lambda v: v.user_id == user_id)
+        # Shares the user owns (notebooks deleted) or that were granted to them
+        _drop(self.notebook_shares, lambda v: v.notebook_id in notebook_ids or v.shared_with_id == user_id or v.owner_id == user_id)
         self.users.pop(user_id, None)
 
     def add_notebook(self, title: str, user_id: str = "demo-user") -> Notebook:

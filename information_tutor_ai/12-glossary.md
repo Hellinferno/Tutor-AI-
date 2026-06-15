@@ -52,6 +52,10 @@ Plain‑English definitions of the terms used across this project and these docs
 | **Rate limiting** | Capping how many requests a client may make in a time window (returns HTTP 429 when exceeded) to protect the service. |
 | **Account self‑service** | Letting a user manage their own account: change password, reset a forgotten one, edit profile, or delete the account (and all its data). |
 | **Readiness probe (`/ready`)** | An endpoint a load balancer checks to know the service is up and its store opened before sending traffic. |
+| **Notebook sharing** | Giving another user access to one of your notebooks — as a *viewer* (read / ask / generate) or an *editor* (also add/change sources). |
+| **Viewer / editor** | The two share levels. A viewer can read and use a shared notebook; an editor can additionally modify its sources. |
+| **"Shared with me"** | The list of notebooks other people have shared with you. |
+| **Role (student / instructor / admin)** | A user's account level. Admins get a users overview and system metrics; admins are set by the operator (`STUDYLAB_ADMIN_EMAILS`). |
 | **Notion export** | Sending a generated artifact into the Notion note‑taking app. |
 | **Gateway** | The backend "front door" service that receives requests from the website. |
 | **Service** | A standalone backend program (here: gateway, rag, solver). |
@@ -67,4 +71,4 @@ Plain‑English definitions of the terms used across this project and these docs
 | **CI (Continuous Integration)** | Automated checks that run on every code push (here, CircleCI). |
 | **Eval / benchmark** | A fixed set of test problems used to measure solver quality. |
 | **Env‑gated adapter** | Code whose live behaviour turns on only when an environment variable / external service is configured. |
-| **Phase 0–6** | Built stages: foundation (0), grounded RAG + verified solver (1), teaching/quiz/paper (2), memory/revision/analytics/voice (3), connectors + multi‑agent teaching + pricing (4), auth/authorization/quotas/observability (5), production hardening + user readiness — CORS, rate limiting, input caps, account self‑service, onboarding (6). Remaining later: native mobile, horizontal‑scaling infra, OAuth/SSO, reset‑email delivery. |
+| **Phase 0–7** | Built stages: foundation (0), grounded RAG + verified solver (1), teaching/quiz/paper (2), memory/revision/analytics/voice (3), connectors + multi‑agent teaching + pricing (4), auth/authorization/quotas/observability (5), production hardening + user readiness (6), collaboration — notebook sharing + roles (7). Remaining later: native mobile, horizontal‑scaling infra, OAuth/SSO, reset‑email delivery. |

@@ -157,7 +157,9 @@ export function AuthPanel() {
           <span className="badge">Phase 5–6</span>
         </div>
         <p className="muted13">
-          Signed in as <strong>{userEmail}</strong>. Your notebooks, usage, and plan are scoped to this account.
+          Signed in as <strong>{userEmail}</strong>
+          {me && me.role !== "student" ? <span className="badge"> {me.role}</span> : null}. Your notebooks, usage, and
+          plan are scoped to this account.
         </p>
         {me && (
           <label className="inputRow">

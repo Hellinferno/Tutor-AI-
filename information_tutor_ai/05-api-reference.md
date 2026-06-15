@@ -32,6 +32,8 @@ machine‑readable spec is [docs/openapi.phase1.yml](../docs/openapi.phase1.yml)
 | **Billing** (plans / subscription / subscribe / usage) | ✅ | ✅ | — |
 | **Auth** (register / login / me) | ✅ | ✅ (register/login) | — |
 | **Account** (password change/forgot/reset, profile, delete) | ✅ | — | — |
+| **Sharing** (share / unshare / list / shared-with-me) | ✅ | — | — |
+| **Admin** (users / metrics — admin role) | ✅ | — | — |
 | **Observability** (`/metrics`) | ✅ | ✅ | — |
 | **Health/readiness** (`/health`, `/ready`) | ✅ | ✅ (`/health`) | ✅ (`/health`) |
 
@@ -395,6 +397,37 @@ Readiness probe (no auth) → `{ "status": "ready", "version": "0.6.0", "store":
 - **Input caps:** source upload/import over `STUDYLAB_MAX_SOURCE_CHARS` (default 1,000,000) returns `400`.
 - **Auth gate:** with `STUDYLAB_REQUIRE_AUTH=true`, every non-public route needs a bearer token
   (else `401`); accessing another user's notebook/resource returns **`403` `forbidden`**.
+
+---
+
+## Phase 7 endpoints — collaboration, sharing & roles
+
+Sharing and admin routes always act as **the logged-in user** (bearer token required, else `401`).
+A `viewer` share grants read / ask / generate; an `editor` share also grants source writes
+(upload/import). `authorize_notebook` now allows the owner **or** a shared user; cross-access is `403`.
+
+### `POST /v1/notebooks/{id}/shares`
+Share a notebook (owner only) with another user by email.
+```json
+// request:  { "email": "classmate@example.com", "role": "viewer" }   // or "editor"
+// response: the share { id, notebook_id, owner_id, shared_with_id, shared_with_email, role, created_at }
+```
+Re-sharing the same email updates the role (no duplicate). Unknown email → `404`; bad role → `400`;
+non-owner → `403`.
+
+### `GET /v1/notebooks/{id}/shares`  ·  `POST /v1/notebooks/{id}/shares/remove`
+List a notebook's shares (owner only) → `{ "shares": [ … ] }`; revoke one →
+`{ "ok": true, "removed": "<share_id>" }` (request `{ "share_id": "…" }`).
+
+### `GET /v1/notebooks/shared-with-me`
+Notebooks shared with the caller → `{ "shared_with_me": [ { share_id, notebook_id, title, role, owner_id } ] }`.
+
+### `GET /v1/admin/users`  ·  `GET /v1/admin/metrics`  *(admin role required → else `403`)*
+List users (public shape, no hashes) and the metrics snapshot. Admin is granted at registration to
+emails in `STUDYLAB_ADMIN_EMAILS`.
+
+> Write-vs-view: source **upload** and connector **import** require an `editor` share (or ownership);
+> reads, ask, and material generation (quizzes/papers/teaching/artifacts) are allowed for `viewer`.
 
 ---
 

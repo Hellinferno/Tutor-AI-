@@ -11,6 +11,7 @@ import { PricingPanel } from "../components/pricing-panel";
 import { QuizPanel } from "../components/quiz-panel";
 import { ReportPanel } from "../components/report-panel";
 import { RevisionPanel } from "../components/revision-panel";
+import { SharePanel } from "../components/share-panel";
 import { SolvePanel } from "../components/solve-panel";
 import { SourcePanel } from "../components/source-panel";
 import { TeachingPanel } from "../components/teaching-panel";
@@ -27,6 +28,7 @@ export default function Page() {
         </div>
         <nav className="nav">
           <a href="#account">Account</a>
+          <a href="#share">Sharing</a>
           <a href="#sources">Sources</a>
           <a href="#connectors">Connectors</a>
           <a href="#ask">Ask</a>
@@ -57,6 +59,7 @@ export default function Page() {
 
           <div className="grid">
             <AuthPanel />
+            <SharePanel />
             <SourcePanel />
             <ConnectorsPanel />
             <NotebookChat />

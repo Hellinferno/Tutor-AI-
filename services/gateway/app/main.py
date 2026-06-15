@@ -123,8 +123,18 @@ class StudyLabHandler(BaseHTTPRequestHandler):
         if len(parts) == 4 and parts[:2] == ["v1", "billing"] and parts[2] == "usage":
             self._handle(lambda: (self._require_self(parts[3]), api.usage_summary(user_id=self._uid(parts[3])))[1])
             return
+        # ── Phase 7 GET routes ──
+        if parts == ["v1", "notebooks", "shared-with-me"]:
+            self._handle(lambda: api.list_shared_with_me(self._session_user()))
+            return
+        if len(parts) == 4 and parts[:2] == ["v1", "notebooks"] and parts[3] == "shares":
+            self._handle(lambda: api.list_shares(self._session_user(), parts[2]))
+            return
+        if parts == ["v1", "admin", "users"]:
+            self._handle(lambda: api.list_users(self._session_user()))
+            return
         if parts == ["v1", "admin", "metrics"]:
-            self._handle(lambda: api.metrics_snapshot())
+            self._handle(lambda: (api.require_admin(self._session_user()), api.metrics_snapshot())[1])
             return
         self._json(404, {"error": {"code": "not_found", "message": f"No route for GET {path}"}})
 
@@ -167,7 +177,7 @@ class StudyLabHandler(BaseHTTPRequestHandler):
             self._handle(lambda: (self._own(parts[2]), api.ask_notebook(notebook_id=parts[2], query=payload["query"]))[1])
             return
         if len(parts) == 5 and parts[:2] == ["v1", "notebooks"] and parts[3:] == ["sources", "upload"]:
-            self._handle(lambda: (self._own(parts[2]), api.upload_source(notebook_id=parts[2], title=payload["title"], text=payload["text"], kind=payload.get("kind", "notes")))[1])
+            self._handle(lambda: (self._own(parts[2], edit=True), api.upload_source(notebook_id=parts[2], title=payload["title"], text=payload["text"], kind=payload.get("kind", "notes")))[1])
             return
         if len(parts) == 5 and parts[:2] == ["v1", "notebooks"] and parts[3:] == ["artifacts", "generate"]:
             self._handle(lambda: (self._own(parts[2]), api.generate_artifact(notebook_id=parts[2], artifact_type=payload["artifact_type"], title=payload.get("title")))[1])
@@ -250,7 +260,7 @@ class StudyLabHandler(BaseHTTPRequestHandler):
             return
         # ── Phase 4: Source connectors ──
         if len(parts) == 5 and parts[:2] == ["v1", "notebooks"] and parts[3:] == ["sources", "import"]:
-            self._handle(lambda: (self._own(parts[2]), api.import_source(notebook_id=parts[2], connector_type=payload["connector_type"], title=payload.get("title", ""), payload=payload.get("payload", {}), user_id=self._uid(payload.get("user_id"))))[1])
+            self._handle(lambda: (self._own(parts[2], edit=True), api.import_source(notebook_id=parts[2], connector_type=payload["connector_type"], title=payload.get("title", ""), payload=payload.get("payload", {}), user_id=self._uid(payload.get("user_id"))))[1])
             return
         # ── Phase 4: Billing ──
         if len(parts) == 4 and parts[:2] == ["v1", "billing"] and parts[3] == "subscribe":
@@ -258,6 +268,13 @@ class StudyLabHandler(BaseHTTPRequestHandler):
             return
         if len(parts) == 4 and parts[:2] == ["v1", "billing"] and parts[3] == "usage":
             self._handle(lambda: (self._require_self(parts[2]), api.record_usage(user_id=self._uid(parts[2]), action=payload["action"], quantity=payload.get("quantity", 1)))[1])
+            return
+        # ── Phase 7: Sharing ──
+        if len(parts) == 4 and parts[:2] == ["v1", "notebooks"] and parts[3] == "shares":
+            self._handle(lambda: api.share_notebook(self._session_user(), parts[2], email=payload["email"], role=payload.get("role", "viewer")))
+            return
+        if len(parts) == 5 and parts[:2] == ["v1", "notebooks"] and parts[3:] == ["shares", "remove"]:
+            self._handle(lambda: api.unshare_notebook(self._session_user(), parts[2], share_id=payload["share_id"]))
             return
         self._json(404, {"error": {"code": "not_found", "message": f"No route for POST {path}"}})
 
@@ -312,6 +329,9 @@ class StudyLabHandler(BaseHTTPRequestHandler):
         """Resolve the user from the bearer token regardless of enforcement (account routes)."""
         return api.user_id_from_token(self._bearer_token())
 
+    # Phase 7 collaboration/admin routes always act as the logged-in user.
+    _session_user = _token_user_id
+
     def _uid(self, payload_user: str | None = None) -> str:
         return self.auth_user_id if self._enforcing() else (payload_user or "demo-user")
 
@@ -319,9 +339,9 @@ class StudyLabHandler(BaseHTTPRequestHandler):
         if self._enforcing() and user_id != self.auth_user_id:
             raise PermissionError("you do not have access to this resource")
 
-    def _own(self, notebook_id: str) -> None:
+    def _own(self, notebook_id: str, edit: bool = False) -> None:
         if self._enforcing():
-            api.authorize_notebook(self.auth_user_id, notebook_id)
+            api.authorize_notebook(self.auth_user_id, notebook_id, require_edit=edit)
 
     def _own_teaching(self, session_id: str) -> None:
         if self._enforcing():

@@ -28,7 +28,7 @@ From the repository root (`tutor AI/`):
 # Make the core importable (PowerShell)
 $env:PYTHONPATH = "packages/studylab_core"
 
-# Run the full test suite (134 tests)
+# Run the full test suite (150 tests)
 python -m unittest discover tests
 
 # Run the solver quality gate (must report false_verified_rate=0)
@@ -79,9 +79,9 @@ python -m services.gateway.app.main          # http://localhost:8000
 cd apps/web; npm run dev                      # http://localhost:3000
 ```
 Then open the dev server, create a notebook in the header, upload a source, and every panel
-(account, sources, connectors, ask, teach, multi‑agent, solve, quiz, paper, artifacts, report,
-revision, analytics, voice, plans, metrics) works end‑to‑end. The web app reads the gateway URL from
-`NEXT_PUBLIC_API_BASE` (default `http://localhost:8000/v1`).
+(account, sharing, sources, connectors, ask, teach, multi‑agent, solve, quiz, paper, artifacts,
+report, revision, analytics, voice, plans, metrics) works end‑to‑end. The web app reads the gateway
+URL from `NEXT_PUBLIC_API_BASE` (default `http://localhost:8000/v1`).
 
 ---
 
@@ -120,6 +120,7 @@ All documented in [.env.example](../.env.example). The ones that change behaviou
 | `STUDYLAB_AUTH_MOCK_EMAIL` | `true` → return reset tokens in the API response even with auth enforced (dev only). |
 | `STUDYLAB_DEV_INSECURE` | `true` → allow the dev JWT secret with auth enforced (dev only; never in prod). |
 | `RAG_BIND_HOST` | Bind host for the internal rag service (default loopback `127.0.0.1`). |
+| `STUDYLAB_ADMIN_EMAILS` | Comma-separated emails granted the `admin` role at registration (admin-only `/v1/admin/*`). |
 
 Variables present for the **production target** but not yet the live path: `DATABASE_URL`
 (Postgres), `QDRANT_URL`/`QDRANT_COLLECTION`, `REDIS_URL`, `EMBEDDINGS_ENDPOINT`. See
