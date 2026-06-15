@@ -2062,11 +2062,25 @@ class SqliteStudyLabStore:
 def make_store_from_env():
     """Select the store implementation from the environment.
 
-    Set STUDYLAB_SQLITE_PATH to use durable SQLite persistence; otherwise the
-    in-memory store is used (the default for tests and ephemeral runs).
+    Resolution order (Phase 10):
+
+    1. ``STUDYLAB_POSTGRES_URL`` or ``DATABASE_URL`` -> :class:`PostgresStudyLabStore`
+       (psycopg required; falls through to SQLite if the driver isn't installed).
+    2. ``STUDYLAB_SQLITE_PATH`` -> :class:`SqliteStudyLabStore`.
+    3. Otherwise the in-memory store (default for tests + ephemeral runs).
     """
     from .store import InMemoryStudyLabStore
 
+    if os.getenv("STUDYLAB_POSTGRES_URL") or os.getenv("DATABASE_URL"):
+        try:
+            from .store_postgres import PostgresStudyLabStore
+
+            return PostgresStudyLabStore()
+        except Exception:
+            # psycopg not installed or connection refused — fall through to SQLite/memory
+            # rather than refusing to boot. The /v1/admin/storage diagnostic exposes
+            # the active backend so an operator can verify what's running.
+            pass
     path = os.getenv("STUDYLAB_SQLITE_PATH")
     if path:
         return SqliteStudyLabStore(path)

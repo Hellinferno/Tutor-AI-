@@ -159,7 +159,7 @@ Phase 8 turns the *instructor* role into a real teaching surface:
 > auto‑graded class with weak‑topic insights without leaving Tutor‑AI for a spreadsheet.
 
 ### 13. Discussion, feedback, and a notifications inbox
-The newest layer (Phase 9) makes the multi‑user product *feel* connected:
+Phase 9 makes the multi‑user product *feel* connected:
 - **Threaded discussion comments** on any notebook — everyone the notebook is shared with (and the
   owner) can post, ask follow‑up questions, or trade study notes in one place.
 - **Instructor feedback on submissions** — beside the auto‑grade, the instructor can write a
@@ -173,6 +173,23 @@ The newest layer (Phase 9) makes the multi‑user product *feel* connected:
 > conversation. Auto‑grading was already there; instructor feedback makes the grade *yours*.
 > And the inbox means you stop having to refresh classroom + sharing pages just to see what
 > changed.
+
+### 14. Real production storage (the plumbing for going live)
+The newest layer (Phase 10) is invisible to students — but it's the difference between *"runs on
+your laptop"* and *"runs for thousands of people on real infrastructure"*:
+- **Postgres** — flipping one environment variable (`DATABASE_URL`) swaps the SQLite file for a
+  real Postgres database, without changing a single line of engine code.
+- **Real embeddings** — set `OPENAI_API_KEY` (or point at any compatible HTTP embeddings endpoint)
+  and Tutor‑AI starts using a real model for "what does this passage mean?" instead of the local
+  fallback. If the real provider hiccups, the request never collapses — it falls back gracefully.
+- **Live Qdrant** — point `QDRANT_URL` at a running Qdrant cluster and search across millions of
+  uploaded passages becomes its job. The local rerank stays the same so quality remains predictable.
+- **Operator visibility** — admins can call a `/v1/admin/storage` endpoint to confirm which real
+  services the running process actually picked up, without anyone leaking the connection strings.
+
+> 🟢 **Why it matters:** every previous phase was the *product*. Phase 10 is the *infrastructure
+> the product needs to keep working at scale*. Nothing changes for a student; everything changes
+> for the operator hosting the service.
 
 ---
 
@@ -189,18 +206,20 @@ The newest layer (Phase 9) makes the multi‑user product *feel* connected:
 
 ## What's built right now (and what isn't)
 
-✅ **Built and working today** (Phase 0 → Phase 9): notebooks, source upload, source guides, grounded
-answers with citations, honest refusal, verified math/finance/code solving, study artifacts, Notion
-export, durable saving of your data, the teaching whiteboard, quizzes, question papers, verified
-answer keys, auto‑graded reports, spaced‑repetition revision, a per‑topic mastery model, progress
-analytics, voice input/output, the website / YouTube / audio / Google Docs connectors, multi‑agent
-teaching, Free/Scholar/Pro plans with usage metering, real accounts (login) with per‑user privacy and
-a system‑health dashboard, full account self‑service (change/reset password, delete account),
-one‑click sample onboarding, production safety rails (rate limits, input caps, CORS), notebook
-sharing (viewer/editor) with a "shared with me" view, student/instructor/admin roles, classrooms
-with join codes, assignments and due dates, submission tracking, class‑wide analytics, **plus
-threaded notebook discussions, instructor feedback on submissions (with optional grade override),
-and a notifications inbox** — all driven from a working, responsive interactive website.
+✅ **Built and working today** (Phase 0 → Phase 10): notebooks, source upload, source guides,
+grounded answers with citations, honest refusal, verified math/finance/code solving, study
+artifacts, Notion export, durable saving of your data, the teaching whiteboard, quizzes, question
+papers, verified answer keys, auto‑graded reports, spaced‑repetition revision, a per‑topic mastery
+model, progress analytics, voice input/output, the website / YouTube / audio / Google Docs
+connectors, multi‑agent teaching, Free/Scholar/Pro plans with usage metering, real accounts
+(login) with per‑user privacy and a system‑health dashboard, full account self‑service
+(change/reset password, delete account), one‑click sample onboarding, production safety rails (rate
+limits, input caps, CORS), notebook sharing (viewer/editor) with a "shared with me" view,
+student/instructor/admin roles, classrooms with join codes, assignments and due dates, submission
+tracking, class‑wide analytics, threaded notebook discussions, instructor feedback on submissions
+(with optional grade override), a notifications inbox, **plus production persistence — a real
+Postgres backend, a live Qdrant client, OpenAI / HTTP embedding providers, and an admin storage
+diagnostic** — all driven from a working, responsive interactive website.
 
 🚧 **Planned for later**: a **native mobile app** (the website is already responsive),
 **horizontal‑scaling** infrastructure, **social login (OAuth/SSO)**, and wiring an **email provider**

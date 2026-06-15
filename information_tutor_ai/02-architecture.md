@@ -145,6 +145,23 @@ together:
   action is never blocked by a notification failure (best‑effort). The Phase 8
   `ClassroomEngine` holds an optional `self.social` reference set by `StudyLabAPI` after construction,
   so enroll/assign/submit emit notifications without circular imports.
+- **Production persistence** *(Phase 10)* — three env‑gated adapters move the live stack from "local
+  fallback" to real services without changing any engine:
+  - [PostgresStudyLabStore](../packages/studylab_core/studylab_core/store_postgres.py) subclasses
+    `SqliteStudyLabStore` and swaps the connection layer for psycopg (lazy import). The SQL surface
+    is shared via a thin ``_PgConnAdapter`` that translates ``?`` -> ``%s`` and runs the same
+    SCHEMA. `make_store_from_env` picks Postgres when `DATABASE_URL` (or `STUDYLAB_POSTGRES_URL`)
+    is set, falling back to SQLite then memory if the driver isn't installed.
+  - `OpenAIEmbeddingProvider` + `HttpEmbeddingProvider` in
+    [retrieval.py](../packages/studylab_core/studylab_core/retrieval.py) replace the local hash
+    embedder when `OPENAI_API_KEY` or `EMBEDDINGS_ENDPOINT` is set. `make_embedding_provider`
+    is fallback‑safe: if a real provider fails to initialize, the request path never collapses.
+  - `QdrantHybridSearchAdapter.search_vector_ids` is now a live HTTP client. When `QDRANT_URL` is
+    set, `HybridRetriever` consults Qdrant for the notebook‑scoped candidate set, then runs the
+    local rerank against those chunks — keeping rerank side‑effect‑free while letting Qdrant be
+    the source of truth for recall. Qdrant errors fall back to local recall, never to empty results.
+  - `GET /v1/admin/storage` (admin only) reports the active mix (store class, Qdrant configured,
+    embedding provider name) without exposing DSNs or secrets.
 - **NotionExporter** ([notion.py](../packages/studylab_core/studylab_core/notion.py)) — real
   Notion API call + a mock mode for local demos.
 - **Store** — [InMemoryStudyLabStore](../packages/studylab_core/studylab_core/store.py) or
@@ -268,6 +285,7 @@ together:
 | Collaboration (Phase 7) | notebook sharing (viewer/editor) + roles (student/instructor/admin) | Share-aware `authorize_notebook`; admin via `STUDYLAB_ADMIN_EMAILS`. |
 | Classrooms (Phase 8) | instructor‑owned classes (join code), assignments (quiz/paper), submissions, per‑class analytics | Admin promotes via `POST /v1/admin/users/{id}/role`; class roster/analytics gated to the owning instructor. |
 | Social layer (Phase 9) | discussion comments on notebooks, instructor feedback (+ optional grade override), notifications inbox | Best‑effort `_notify` from share/enroll/assign/submit/grade/comment events; override score wins in submission listings and class analytics. |
+| Production persistence (Phase 10) | real Postgres store, live Qdrant client, OpenAI/HTTP embedding providers, admin storage diagnostics | `DATABASE_URL` → `PostgresStudyLabStore` (psycopg, lazy); `QDRANT_URL` → live `search_vector_ids`; `OPENAI_API_KEY` / `EMBEDDINGS_ENDPOINT` → real embeddings; `/v1/admin/storage` reports the active mix. |
 | Monorepo | pnpm workspaces + Turborepo | [pnpm-workspace.yaml](../pnpm-workspace.yaml), [turbo.json](../turbo.json). |
 | CI | CircleCI | [.circleci/config.yml](../.circleci/config.yml). |
 

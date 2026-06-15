@@ -18,10 +18,11 @@ active.
 |---|---|:--:|---|
 | `InMemoryStudyLabStore` | RAM (Python dicts) | ❌ | Tests, demos, ephemeral runs. **Default.** |
 | `SqliteStudyLabStore` | a `.db` file on disk | ✅ | Real local persistence, single‑node deployments. |
-| Postgres (target) | a Postgres server | ✅ | Production. Schema in [migrations](../packages/db/migrations). |
+| `PostgresStudyLabStore` *(Phase 10)* | a Postgres server (psycopg) | ✅ | Production. Subclasses the SQLite store; SQL is shared and translated via `?` → `%s`. |
 
 Code: [store.py](../packages/studylab_core/studylab_core/store.py),
-[store_sqlite.py](../packages/studylab_core/studylab_core/store_sqlite.py).
+[store_sqlite.py](../packages/studylab_core/studylab_core/store_sqlite.py),
+[store_postgres.py](../packages/studylab_core/studylab_core/store_postgres.py).
 
 ---
 
@@ -34,8 +35,11 @@ Code: [store.py](../packages/studylab_core/studylab_core/store.py),
 api = StudyLabAPI(make_store_from_env())
 ```
 
+- `DATABASE_URL` **or** `STUDYLAB_POSTGRES_URL` **set** → `PostgresStudyLabStore()` *(Phase 10)*. If
+  the `psycopg` driver isn't installed, the factory **falls through** to SQLite/memory rather
+  than refusing to boot — `/v1/admin/storage` confirms what the running process actually picked.
 - `STUDYLAB_SQLITE_PATH` **set** → durable `SqliteStudyLabStore(path)`.
-- `STUDYLAB_SQLITE_PATH` **unset/empty** → `InMemoryStudyLabStore` (default).
+- otherwise → `InMemoryStudyLabStore` (default).
 
 ```powershell
 # durable local run

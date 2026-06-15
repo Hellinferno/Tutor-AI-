@@ -59,16 +59,20 @@ students join via a short code, instructors assign quizzes/papers with due dates
 into a class‑wide analytics view), **and a connected social layer: threaded discussion comments on
 notebooks, instructor feedback (with optional grade override) on student submissions, and an
 inbox of notifications for shares, enrollments, assignments, submissions, grading, and comments**.
-This repository contains the **Phase 0 → Phase 9 vertical slice**: a working, fully‑tested core
-(190 tests) with an **interactive, responsive Next.js web app wired to the gateway**, all runnable
-without any external cloud services.
+This repository contains the **Phase 0 → Phase 10 vertical slice**: a working, fully‑tested core
+(211 tests) with an **interactive, responsive Next.js web app wired to the gateway**, all runnable
+without any external cloud services — and with **production persistence wired in (env‑gated): a
+real Postgres store, a live Qdrant client, OpenAI / HTTP embedding providers, and an admin storage
+diagnostics endpoint**.
 
-> 🟢 **Non‑developer note:** "Phase 0 through Phase 9" means *the foundation, grounded Q&A +
+> 🟢 **Non‑developer note:** "Phase 0 through Phase 10" means *the foundation, grounded Q&A +
 > verified solving, the teaching/quiz/paper layer, the memory/revision/analytics/voice layer, the
 > connectors/multi‑agent/pricing layer, the auth/observability layer, the production‑hardening +
 > user‑readiness layer, the collaboration layer (notebook sharing + roles), the classroom layer
 > (instructor‑owned classes, join codes, assignments with due dates, submissions, class analytics),
-> and the social layer (discussion comments, instructor feedback on submissions, a notifications
-> inbox)*. The website is a working, responsive app (not a mockup). Remaining later work: native
-> mobile, horizontal‑scaling infra, social login, and reset‑email delivery. See
-> [11-current-status.md](11-current-status.md).
+> the social layer (discussion comments, instructor feedback on submissions, a notifications inbox),
+> and the **production‑persistence layer**: a real Postgres backend, a live Qdrant client,
+> OpenAI / HTTP embedding providers — each switched on by an env var, with a clean local fallback
+> if the real service is unavailable*. The website is a working, responsive app (not a mockup).
+> Remaining later work: native mobile, horizontal‑scaling infra, social login (OAuth/SSO), and
+> reset‑email delivery. See [11-current-status.md](11-current-status.md).

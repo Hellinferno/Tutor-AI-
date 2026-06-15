@@ -9,7 +9,7 @@ is **not built yet**. Keep this document accurate as the source of truth on proj
 
 ---
 
-## ✅ Done, working, and tested (Phase 0 → Phase 9)
+## ✅ Done, working, and tested (Phase 0 → Phase 10)
 
 | Area | State |
 |---|---|
@@ -18,6 +18,10 @@ is **not built yet**. Keep this document accurate as the source of truth on proj
 | Docker Compose (postgres, redis, qdrant, gateway, rag, solver, shared volume) | ✅ |
 | Dockerfiles for gateway, rag, solver | ✅ |
 | DB migration (full Phase 1–9 schema) | ✅ written |
+| **Phase 10 — Postgres store** (`PostgresStudyLabStore`; mirrors SQLite surface; psycopg lazy-imported; activated by `DATABASE_URL` / `STUDYLAB_POSTGRES_URL`) | ✅ |
+| **Phase 10 — Real embedding providers** (`OpenAIEmbeddingProvider`, `HttpEmbeddingProvider`, `make_embedding_provider` factory with safe fallback to local-hash) | ✅ |
+| **Phase 10 — Live Qdrant client** (`QdrantHybridSearchAdapter.search_vector_ids`; activated by `QDRANT_URL`; rerank stays local + deterministic) | ✅ |
+| **Phase 10 — Storage diagnostics** (`GET /v1/admin/storage` reports active store backend, Qdrant configured, embedding provider name; never leaks DSNs) | ✅ |
 | Gateway + rag + solver services (runnable, `/health` + `/ready` + functional routes) | ✅ |
 | Shared API contracts (OpenAPI + TypeScript types, Phase 0–7) | ✅ |
 | Notebook creation, source upload, source guides | ✅ |
@@ -61,9 +65,9 @@ is **not built yet**. Keep this document accurate as the source of truth on proj
 | **Phase 9 — Submission feedback** (instructor feedback + optional grade override; final grade beats auto) | ✅ |
 | **Phase 9 — Notifications** (inbox for share/enroll/assign/submit/grade/comment events; read + read-all) | ✅ |
 | **Interactive web app** (Next 15) — all 20 panels wired to the gateway, responsive/mobile, no static mockups | ✅ |
-| Test suite (190 tests) | ✅ |
+| Test suite (211 tests) | ✅ |
 
-**The Phase 1–9 acceptance gates pass.** See [10-testing-and-eval.md](10-testing-and-eval.md).
+**The Phase 1–10 acceptance gates pass.** See [10-testing-and-eval.md](10-testing-and-eval.md).
 
 ---
 
@@ -74,9 +78,9 @@ integration needs an external service or credentials (and can't be runtime‑ver
 
 | Capability | What exists now | To go live |
 |---|---|---|
-| **Postgres persistence** | Full SQL migration (Phase 1–7); SQLite store mirrors the contract | Add a Postgres-backed store using `DATABASE_URL` |
-| **Qdrant vector search** | `QdrantHybridSearchAdapter` (payload + query plan); local hybrid retriever is the live path | Connect a running Qdrant via `QDRANT_URL` |
-| **Real embeddings** | `EmbeddingProvider` interface; `LocalHashEmbeddingProvider` default | Plug in OpenAI / Voyage / local bge‑e5 |
+| **Postgres persistence** | **Phase 10** — `PostgresStudyLabStore` built (mirrors the SQLite surface; psycopg lazy-imported; falls back to SQLite if the driver isn't installed) | Install `psycopg[binary]`, set `DATABASE_URL`, point at a running Postgres — `make_store_from_env` will pick it |
+| **Qdrant vector search** | **Phase 10** — `QdrantHybridSearchAdapter.search_vector_ids` is a live HTTP client; retriever uses it as the candidate set, rerank stays local + deterministic | Point `QDRANT_URL` (+ optional `QDRANT_COLLECTION` / `QDRANT_API_KEY`) at a running Qdrant; payloads are indexed by `notebook_id` |
+| **Real embeddings** | **Phase 10** — `OpenAIEmbeddingProvider` + `HttpEmbeddingProvider` + `make_embedding_provider` factory; local-hash is the safety fallback if a real provider errors | Set `OPENAI_API_KEY` (or `EMBEDDINGS_ENDPOINT` for any TEI-style server) and the factory picks it up; `/v1/admin/storage` confirms which one is live |
 | **Real OCR** | OCR adapter seam (local placeholder) | Connect an OCR provider |
 | **Redis cache** | Provisioned in compose; cache currently lives in the store | Move cache to Redis via `REDIS_URL` |
 | **Voice STT/TTS** | `VoiceProvider` interface; `MockVoiceProvider` default, `GeminiVoiceProvider` real path | Set `GEMINI_API_KEY` to use the real provider |
@@ -97,15 +101,17 @@ integration needs an external service or credentials (and can't be runtime‑ver
 ## ⚪ Not built yet (beyond the planned phases)
 
 The specs ([Instructions/10-development-phases.md](../Instructions/10-development-phases.md)) define
-Phases 0–4; **Phases 5–9 were added on top** to ship to real users: Phase 5 (auth, authorization,
+Phases 0–4; **Phases 5–10 were added on top** to ship to real users: Phase 5 (auth, authorization,
 quota enforcement, observability), Phase 6 (production hardening + user readiness: CORS, rate
 limiting, input caps, account self‑service, onboarding), Phase 7 (collaboration — notebook
 sharing with viewer/editor roles, "shared with me", and student/instructor/admin roles),
 Phase 8 (classrooms — instructor‑owned classes, 6‑char join codes, assignments with due dates,
 submission tracking, and per‑class analytics; plus admin role management to mint instructors),
-and Phase 9 (the social layer — threaded discussion comments on notebooks, instructor feedback
+Phase 9 (the social layer — threaded discussion comments on notebooks, instructor feedback
 with optional grade override on submissions, and a notifications inbox emitted from every
-multi‑user event). What still remains as a later concern:
+multi‑user event), and Phase 10 (production persistence — a real Postgres store, a live Qdrant
+client, OpenAI/HTTP embedding providers, and an admin storage‑diagnostics endpoint, all env‑gated
+with a clean local fallback). What still remains as a later concern:
 
 - **Native mobile apps** (iOS/Android) — the web app is fully **responsive** (works on phones), but
   there is no native shell yet.
@@ -127,22 +133,26 @@ multi‑user event). What still remains as a later concern:
 
 ## One‑line summary
 
-> **Phase 0 → Phase 9 are complete, tested (190 tests), and self‑contained, and the web app is fully
-> wired to the gateway (20 responsive panels, no static mockups).** Phase 5 added first‑party auth
-> (PBKDF2 + JWT), per‑user authorization, env‑gated quota enforcement, and a `/metrics` endpoint;
-> Phase 6 added production hardening (CORS, rate limiting, input‑size caps, `/ready`, IDOR‑safe
-> ownership checks, fail‑fast JWT secret) and user readiness (account self‑service + sample
-> onboarding); Phase 7 added collaboration — notebook **sharing** (viewer/editor) with a
+> **Phase 0 → Phase 10 are complete, tested (211 tests), and self‑contained, and the web app is
+> fully wired to the gateway (20 responsive panels, no static mockups).** Phase 5 added first‑party
+> auth (PBKDF2 + JWT), per‑user authorization, env‑gated quota enforcement, and a `/metrics`
+> endpoint; Phase 6 added production hardening (CORS, rate limiting, input‑size caps, `/ready`,
+> IDOR‑safe ownership checks, fail‑fast JWT secret) and user readiness (account self‑service +
+> sample onboarding); Phase 7 added collaboration — notebook **sharing** (viewer/editor) with a
 > "shared with me" view, share‑aware authorization, and **roles** (student/instructor/admin) with
 > admin‑only routes; Phase 8 added classrooms — instructor‑owned classes with short join codes,
 > roster, assignments (quiz/paper with due dates), submission tracking through the eval pipeline,
 > per‑class analytics (completion rate, average score, top weak topics), and an admin
-> `POST /admin/users/{id}/role` route to mint instructors; **Phase 9 added the social layer** —
+> `POST /admin/users/{id}/role` route to mint instructors; Phase 9 added the social layer —
 > threaded **discussion comments** on notebooks (owner + shared users can read/post), **instructor
 > feedback** on submissions with an optional grade override (the final score listed and rolled into
 > analytics beats the auto score), and a **notifications inbox** fed by every multi‑user event
-> (share, enroll, assign, submit, grade, comment). Postgres, Qdrant, real embeddings/OCR, Redis,
-> the real voice provider, connector fetch‑workers, Stripe billing, a production metrics backend,
-> and reset‑email delivery are intentionally left as env‑gated adapters; auth / quota / rate‑limit
-> *enforcement* is built but off by default. Native mobile, horizontal‑scaling infra, and OAuth/SSO
-> remain later concerns.
+> (share, enroll, assign, submit, grade, comment); **Phase 10 added production persistence** — a
+> `PostgresStudyLabStore` mirroring the SQLite surface (psycopg lazy-imported), `OpenAIEmbedding
+> Provider` + `HttpEmbeddingProvider` + a fallback‑safe `make_embedding_provider` factory, a live
+> `QdrantHybridSearchAdapter.search_vector_ids` HTTP client that the retriever uses as the
+> candidate set (rerank stays local + deterministic), and an admin `GET /v1/admin/storage`
+> diagnostic that reports the active mix without leaking DSNs. OCR, Redis, the real voice provider,
+> connector fetch‑workers, Stripe billing, a production metrics backend, and reset‑email delivery
+> are intentionally left as env‑gated adapters; auth / quota / rate‑limit *enforcement* is built
+> but off by default. Native mobile, horizontal‑scaling infra, and OAuth/SSO remain later concerns.

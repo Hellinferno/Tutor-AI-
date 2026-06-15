@@ -20,7 +20,16 @@ from .pricing import (
 from .quiz import QuizEngine
 from .rag import RagEngine
 from .ratelimit import RateLimiter, RateLimitError, make_rate_limiter_from_env
-from .retrieval import HybridRetriever, QdrantHybridSearchAdapter
+from .retrieval import (
+    EmbeddingProvider,
+    HttpEmbeddingProvider,
+    HybridRetriever,
+    LocalHashEmbeddingProvider,
+    OpenAIEmbeddingProvider,
+    QdrantHybridSearchAdapter,
+    make_embedding_provider,
+    make_qdrant_adapter,
+)
 from .revision import RepetitionEngine
 from .social import SocialEngine
 from .solver import SolverEngine
@@ -37,14 +46,20 @@ __all__ = [
     "AuthError",
     "BillingProvider",
     "ClassroomEngine",
+    "EmbeddingProvider",
     "EvalEngine",
     "GeminiVoiceProvider",
     "hash_password",
+    "HttpEmbeddingProvider",
     "HybridRetriever",
     "InMemoryStudyLabStore",
+    "LocalHashEmbeddingProvider",
     "make_billing_provider",
+    "make_embedding_provider",
+    "make_qdrant_adapter",
     "make_store_from_env",
     "make_voice_provider",
+    "OpenAIEmbeddingProvider",
     "MetricsCollector",
     "MockBillingProvider",
     "MockVoiceProvider",
@@ -65,6 +80,9 @@ __all__ = [
     "SourceConnectorEngine",
     "SqliteStudyLabStore",
     "StripeBillingProvider",
+    # Phase 10 — Postgres store is re-exported lazily via the module path
+    # ``studylab_core.store_postgres``. We don't import it eagerly here so the
+    # package still imports cleanly without psycopg installed.
     "StudentModel",
     "StudyLabAPI",
     "TeachingEngine",

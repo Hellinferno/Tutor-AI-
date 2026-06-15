@@ -528,6 +528,36 @@ updated row or `{ "ok": true, "marked_read": N }`.
 
 ---
 
+## Phase 10 endpoint — production-persistence diagnostics
+
+### `GET /v1/admin/storage`  *(admin only — else `403`)*
+Reports the **live storage / retrieval / embedding mix** so an operator can verify env wiring
+without leaking DSNs or secrets:
+
+```json
+{
+  "store": {
+    "backend": "PostgresStudyLabStore",
+    "durable": true,
+    "production_backend": true
+  },
+  "qdrant": {
+    "configured": true,
+    "collection": "source_chunks"
+  },
+  "embeddings": {
+    "provider": "openai"
+  }
+}
+```
+
+`store.backend` is the concrete class name; `production_backend` is `true` only for
+`PostgresStudyLabStore`. `qdrant.configured` is `true` only when `QDRANT_URL` was picked up at
+boot. `embeddings.provider` is `local_hash`, `http`, or `openai`. URLs, API keys, and the
+connection DSN are intentionally **never** returned.
+
+---
+
 ## Error format
 ```json
 { "error": { "code": "not_found" | "bad_request", "message": "…" } }

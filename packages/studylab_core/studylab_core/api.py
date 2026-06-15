@@ -648,6 +648,35 @@ class StudyLabAPI:
     def mark_all_notifications_read(self, user_id: str) -> dict[str, Any]:
         return self.social.mark_all_read(user_id)
 
+    # ── Phase 10: Production persistence diagnostics ─────────────────────
+
+    def storage_diagnostics(self, requester_id: str) -> dict[str, Any]:
+        """Report the live storage / retrieval / embeddings mix (admin only).
+
+        Useful in production to confirm that ``DATABASE_URL`` / ``QDRANT_URL`` /
+        ``OPENAI_API_KEY`` were actually picked up by the boot process. Returns the
+        backend class name for the store, whether Qdrant is connected, and the
+        active embedding provider's ``name``. Never leaks DSNs, secrets, or URLs.
+        """
+        self.require_admin(requester_id)
+        qdrant = getattr(self.rag, "qdrant", None)
+        emb = getattr(self.rag, "embeddings", None)
+        store_class = type(self.store).__name__
+        return {
+            "store": {
+                "backend": store_class,
+                "durable": store_class in ("SqliteStudyLabStore", "PostgresStudyLabStore"),
+                "production_backend": store_class == "PostgresStudyLabStore",
+            },
+            "qdrant": {
+                "configured": bool(qdrant and getattr(qdrant, "is_live", lambda: False)()),
+                "collection": getattr(qdrant, "collection", None) if qdrant else None,
+            },
+            "embeddings": {
+                "provider": getattr(emb, "name", "unknown") if emb else "unknown",
+            },
+        }
+
     # ── Phase 5: Observability ────────────────────────────────────────────
 
     def metrics_snapshot(self) -> dict[str, Any]:

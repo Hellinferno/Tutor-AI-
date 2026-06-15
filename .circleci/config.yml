@@ -58,3 +58,7 @@ workflows:
     jobs:
       - python-test
       - web-static
+  phase10:
+    jobs:
+      - python-test
+      - web-static

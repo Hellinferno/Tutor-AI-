@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
-  title: StudyLab Phase 0-9 API
-  version: 0.9.0
+  title: StudyLab Phase 0-10 API
+  version: 0.10.0
 servers:
   - url: /v1
 paths:
@@ -234,3 +234,6 @@ paths:
   /notifications/read-all:
     post:
       summary: Mark every unread notification for the authenticated user as read
+  /admin/storage:
+    get:
+      summary: Storage / retrieval diagnostics (admin only) — active store backend, Qdrant configured, embedding provider name. Never leaks DSNs or secrets.

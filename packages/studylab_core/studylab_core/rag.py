@@ -1,15 +1,31 @@
 from __future__ import annotations
 
 from .models import AskResponse, Citation, Source, SourceGuide
-from .retrieval import HybridRetriever
+from .retrieval import (
+    EmbeddingProvider,
+    HybridRetriever,
+    QdrantHybridSearchAdapter,
+    make_embedding_provider,
+    make_qdrant_adapter,
+)
 from .store import InMemoryStudyLabStore
 from .text_processing import chunk_text, make_source_guide, select_relevant_sentences
 
 
 class RagEngine:
-    def __init__(self, store: InMemoryStudyLabStore) -> None:
+    def __init__(
+        self,
+        store: InMemoryStudyLabStore,
+        embeddings: EmbeddingProvider | None = None,
+        qdrant: QdrantHybridSearchAdapter | None = None,
+    ) -> None:
         self.store = store
-        self.retriever = HybridRetriever(store)
+        # Resolve the embedding + Qdrant providers from the env if the caller didn't
+        # inject one. This keeps `StudyLabAPI()` zero-arg in tests while letting
+        # production wire OpenAI + a live Qdrant cluster via env vars (see Phase 10).
+        self.embeddings = embeddings if embeddings is not None else make_embedding_provider()
+        self.qdrant = qdrant if qdrant is not None else make_qdrant_adapter()
+        self.retriever = HybridRetriever(store, embeddings=self.embeddings, qdrant=self.qdrant)
 
     def create_notebook(self, title: str, user_id: str = "demo-user"):
         return self.store.add_notebook(title=title, user_id=user_id)

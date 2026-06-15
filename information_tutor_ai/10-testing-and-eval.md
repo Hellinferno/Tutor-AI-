@@ -12,7 +12,7 @@ The project's quality gate: what runs, what it proves, and the Phase 1–7 accep
 
 | Command | What it checks | Current result |
 |---|---|---|
-| `python -m unittest discover tests` | 190 unit/integration tests | ✅ 190 passed |
+| `python -m unittest discover tests` | 211 unit/integration tests | ✅ 211 passed (1 opt-in live-Postgres test skipped unless `STUDYLAB_TEST_POSTGRES_URL` is set) |
 | `python packages/eval/run_eval.py` | solver verification gate | ✅ 15 cases, `false_verified_rate=0` |
 | `python -m compileall packages services` | every module byte‑compiles (per [Instructions/12](../Instructions/12-testing-strategy.md)) | ✅ clean |
 | `cd apps/web && npm run build` | web compiles + type‑checks + prerenders | ✅ green (interactive app) |
@@ -31,7 +31,7 @@ push — see [.circleci/config.yml](../.circleci/config.yml).
 
 ---
 
-## The test suite (190 tests)
+## The test suite (211 tests)
 
 ### `tests/test_phase1_core.py` — 12 tests
 - **Chunking**: offsets are stable (a chunk's `[start:end]` slice reproduces its text).
@@ -351,4 +351,37 @@ instructor feedback on submissions, and an inbox of notifications for every mult
 ➡️ **The Phase 9 gate passes.** Comments, feedback, and notification routes require a logged-in
 user; the single-user demo experience (no auth, no inbox) is unchanged. Remaining later work is
 unchanged: native mobile, horizontal-scaling infra, OAuth/SSO, and reset-email delivery — see
+[11-current-status.md](11-current-status.md).
+
+---
+
+## Phase 10 acceptance gate (production persistence)
+
+Phase 10 moves three former "🟡 adapter" rows into the green column: Postgres persistence, live
+Qdrant, and real embedding providers. Each is env-gated with a clean local fallback so the default
+offline experience is unchanged.
+
+| Gate criterion | Status |
+|---|---|
+| `make_embedding_provider` returns local-hash by default | ✅ |
+| Explicit `EMBEDDINGS_PROVIDER=local` wins even with `OPENAI_API_KEY` set | ✅ |
+| `OPENAI_API_KEY` → `OpenAIEmbeddingProvider` (factory) | ✅ |
+| `EMBEDDINGS_ENDPOINT` → `HttpEmbeddingProvider` (factory) | ✅ |
+| HTTP provider sends `{"input": …}` + Bearer header; response normalised | ✅ |
+| OpenAI provider calls `/v1/embeddings` with the right model/key | ✅ |
+| Real-provider failure during init falls back to local — never raises into the request path | ✅ |
+| `QdrantHybridSearchAdapter.is_live()` true only when `QDRANT_URL` set | ✅ |
+| `make_qdrant_adapter` returns `None` without env, configured adapter with env | ✅ |
+| Retriever uses Qdrant hits as the candidate set when configured | ✅ |
+| Qdrant error → local fallback, never silently empty | ✅ |
+| `store_postgres` module imports cleanly without psycopg installed | ✅ |
+| Instantiating `PostgresStudyLabStore` without psycopg raises a clear error | ✅ |
+| `make_store_from_env` with `DATABASE_URL` set but no psycopg → SQLite fallback (not a crash) | ✅ |
+| `GET /v1/admin/storage` is admin-gated and reports backend / qdrant / embeddings without leaking DSNs | ✅ |
+| Tests pass | ✅ 20 Phase 10 tests covering embedding factory, HTTP wiring, Qdrant client + fallback, Postgres lazy-load contract, and diagnostics; 1 opt-in live-Postgres test skips without `STUDYLAB_TEST_POSTGRES_URL` |
+
+➡️ **The Phase 10 gate passes.** The default zero-config run is unchanged; flipping `DATABASE_URL`,
+`QDRANT_URL`, or `OPENAI_API_KEY` switches the live mix. `/v1/admin/storage` confirms what the
+running process actually picked. Remaining later work: native mobile, horizontal-scaling infra,
+OAuth/SSO, reset-email delivery, Redis cache, and the connector fetch-worker — see
 [11-current-status.md](11-current-status.md).

@@ -136,6 +136,10 @@ class StudyLabHandler(BaseHTTPRequestHandler):
         if parts == ["v1", "admin", "metrics"]:
             self._handle(lambda: (api.require_admin(self._session_user()), api.metrics_snapshot())[1])
             return
+        # ── Phase 10: storage diagnostics ──
+        if parts == ["v1", "admin", "storage"]:
+            self._handle(lambda: api.storage_diagnostics(self._session_user()))
+            return
         # ── Phase 8 GET routes ──
         if parts == ["v1", "classes"]:
             self._handle(lambda: api.list_my_classes(self._session_user()))

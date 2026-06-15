@@ -103,6 +103,11 @@ All documented in [.env.example](../.env.example). The ones that change behaviou
 | Variable | Effect |
 |---|---|
 | `STUDYLAB_SQLITE_PATH` | Set → durable SQLite; unset → in‑memory. |
+| `DATABASE_URL` *(Phase 10)* | Set → `PostgresStudyLabStore` (requires `psycopg[binary]`). Same effect as `STUDYLAB_POSTGRES_URL`. Falls back to SQLite/memory if the driver isn't installed. |
+| `QDRANT_URL` *(Phase 10)* | Set → live Qdrant hybrid candidate search (rerank stays local). Pair with `QDRANT_COLLECTION` (default `source_chunks`) and optional `QDRANT_API_KEY`. |
+| `OPENAI_API_KEY` *(Phase 10)* | Set → `OpenAIEmbeddingProvider` calls `/v1/embeddings`. Model overrides via `OPENAI_EMBEDDING_MODEL` (default `text-embedding-3-small`); `OPENAI_BASE_URL` for Azure / proxies. |
+| `EMBEDDINGS_ENDPOINT` *(Phase 10)* | Set → `HttpEmbeddingProvider` POSTs `{"input": "<text>"}` to that URL and reads `{"embedding": [...]}`. Add `EMBEDDINGS_API_KEY` for a Bearer header. |
+| `EMBEDDINGS_PROVIDER` *(Phase 10)* | Explicit switch (`local` / `openai` / `http`) — overrides auto-detection from keys/URLs. |
 | `PORT` / `RAG_PORT` / `SOLVER_PORT` | Service ports (8000 / 8001 / 8002). |
 | `NEXT_PUBLIC_API_BASE` | Gateway base URL the web app calls (default `http://localhost:8000/v1`). |
 | `STUDYLAB_PROMPTS_DIR` | Override where prompt templates are loaded from. |
