@@ -103,6 +103,20 @@ class Phase7SharingTests(unittest.TestCase):
         with self.assertRaises(PermissionError):
             api.list_shares(viewer["id"], nb["id"])
 
+    def test_cannot_unshare_a_foreign_notebooks_share(self) -> None:
+        # IDOR guard: owning notebook A must not let you delete a share on notebook B.
+        api = StudyLabAPI()
+        owner_a = api.register_user("a@x.com", "password1")["user"]
+        owner_b = api.register_user("b@x.com", "password2")["user"]
+        api.register_user("viewer@x.com", "password3")
+        nb_a = api.create_notebook("A", user_id=owner_a["id"])
+        nb_b = api.create_notebook("B", user_id=owner_b["id"])
+        share_b = api.share_notebook(owner_b["id"], nb_b["id"], "viewer@x.com", "viewer")
+        # owner_a owns nb_a but passes nb_b's share id -> must be rejected, share survives.
+        with self.assertRaises(KeyError):
+            api.unshare_notebook(owner_a["id"], nb_a["id"], share_b["id"])
+        self.assertEqual(len(api.list_shares(owner_b["id"], nb_b["id"])["shares"]), 1)
+
 
 # ── Authorization (view vs edit) ────────────────────────────────────────────
 

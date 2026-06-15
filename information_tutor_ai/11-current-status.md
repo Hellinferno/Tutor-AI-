@@ -53,7 +53,7 @@ is **not built yet**. Keep this document accurate as the source of truth on proj
 | **Phase 7 — Notebook sharing** (share with viewer/editor; "shared with me"; view‑vs‑edit access) | ✅ |
 | **Phase 7 — Roles** (student / instructor / admin; admin‑only `/v1/admin/*`; `STUDYLAB_ADMIN_EMAILS`) | ✅ |
 | **Interactive web app** (Next 15) — all 17 panels wired to the gateway, responsive/mobile, no static mockups | ✅ |
-| Test suite (150 tests) | ✅ |
+| Test suite (151 tests) | ✅ |
 
 **The Phase 1–7 acceptance gates pass.** See [10-testing-and-eval.md](10-testing-and-eval.md).
 
@@ -115,7 +115,7 @@ remains as a later concern:
 
 ## One‑line summary
 
-> **Phase 0 → Phase 7 are complete, tested (150 tests), and self‑contained, and the web app is fully
+> **Phase 0 → Phase 7 are complete, tested (151 tests), and self‑contained, and the web app is fully
 > wired to the gateway (17 responsive panels, no static mockups).** Phase 5 added first‑party auth
 > (PBKDF2 + JWT), per‑user authorization, env‑gated quota enforcement, and a `/metrics` endpoint;
 > Phase 6 added production hardening (CORS, rate limiting, input‑size caps, `/ready`, IDOR‑safe

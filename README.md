@@ -2,7 +2,7 @@
 
 NotebookLM-inspired AI study lab for AI, data science, analytics, and finance learners.
 
-This repository implements the Phase 0-7 vertical slice (150 tests, `false_verified_rate=0`):
+This repository implements the Phase 0-7 vertical slice (151 tests, `false_verified_rate=0`):
 
 - notebooks and source upload
 - source guide generation

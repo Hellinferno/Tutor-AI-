@@ -28,7 +28,7 @@ From the repository root (`tutor AI/`):
 # Make the core importable (PowerShell)
 $env:PYTHONPATH = "packages/studylab_core"
 
-# Run the full test suite (150 tests)
+# Run the full test suite (151 tests)
 python -m unittest discover tests
 
 # Run the solver quality gate (must report false_verified_rate=0)

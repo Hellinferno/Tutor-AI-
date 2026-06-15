@@ -162,5 +162,5 @@ engine in tests/other code. All expose `GET /health`.
 | `tests/test_phase4_core.py` | 23 tests: connectors (validation, HTML strip, metering), multi-agent teaching, pricing/quotas, SQLite persistence. |
 | `tests/test_phase5_core.py` | 20 tests: password hashing, auth (register/login/JWT verify/expiry/tamper), authorization (ownership), quota enforcement, observability metrics. |
 | `tests/test_phase6_core.py` | 23 tests: account self-service (change/reset/profile/delete cascade incl. grading artifacts), input caps, rate limiter, JWT-secret guard, reset-token gating, malformed-token → AuthError. |
-| `tests/test_phase7_core.py` | 16 tests: notebook sharing (share/unshare/list/shared-with-me, re-share role update, validation), view-vs-edit authorization, roles/admin (env-granted, admin-only), SQLite persistence + owner-deletion cascade. |
+| `tests/test_phase7_core.py` | 17 tests: notebook sharing (share/unshare/list/shared-with-me, re-share role update, validation), view-vs-edit authorization, roles/admin (env-granted, admin-only), SQLite persistence + owner-deletion cascade. |
 | `Instructions/01..12 + design docs` | The original product/engineering specifications (intent & gates). |

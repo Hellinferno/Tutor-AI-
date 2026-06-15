@@ -12,7 +12,7 @@ The project's quality gate: what runs, what it proves, and the Phase 1–7 accep
 
 | Command | What it checks | Current result |
 |---|---|---|
-| `python -m unittest discover tests` | 150 unit/integration tests | ✅ 150 passed |
+| `python -m unittest discover tests` | 151 unit/integration tests | ✅ 151 passed |
 | `python packages/eval/run_eval.py` | solver verification gate | ✅ 15 cases, `false_verified_rate=0` |
 | `python -m compileall packages services` | every module byte‑compiles (per [Instructions/12](../Instructions/12-testing-strategy.md)) | ✅ clean |
 | `cd apps/web && npm run build` | web compiles + type‑checks + prerenders | ✅ green (interactive app) |
@@ -31,7 +31,7 @@ push — see [.circleci/config.yml](../.circleci/config.yml).
 
 ---
 
-## The test suite (150 tests)
+## The test suite (151 tests)
 
 ### `tests/test_phase1_core.py` — 12 tests
 - **Chunking**: offsets are stable (a chunk's `[start:end]` slice reproduces its text).
@@ -114,7 +114,7 @@ push — see [.circleci/config.yml](../.circleci/config.yml).
   not enforced; explicit `STUDYLAB_DEV_INSECURE` override.
 - **Robustness**: a malformed bearer raises `AuthError` (→ 401), never an uncaught 500.
 
-### `tests/test_phase7_core.py` — 16 tests
+### `tests/test_phase7_core.py` — 17 tests
 - **Sharing**: share/unshare, owner lists shares, "shared with me"; re-sharing the same email
   **updates** the role (no duplicate); unknown email → `KeyError`, bad role → `ValueError`, non-owner
   share/list → `PermissionError`.
@@ -291,7 +291,7 @@ Phase 7 extends the Phase 6 ownership model into multi-user collaboration.
 | Roles | ✅ (`student`/`instructor`/`admin`; admin granted via `STUDYLAB_ADMIN_EMAILS`) |
 | Admin-only routes | ✅ (`/v1/admin/users`, `/v1/admin/metrics` → 403 for non-admins) |
 | Deletion integrity | ✅ (shares cascade with the notebook and with either party's account) |
-| Tests pass | ✅ 16 Phase 7 tests + gateway HTTP collaboration smoke test |
+| Tests pass | ✅ 17 Phase 7 tests + gateway HTTP collaboration smoke test |
 
 ➡️ **The Phase 7 gate passes.** Sharing/admin routes require a logged-in user (bearer token); the
 single-user demo experience is unchanged when auth is off. Remaining later work is unchanged: native

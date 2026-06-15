@@ -476,6 +476,10 @@ class StudyLabAPI:
         notebook = self.store.require_notebook(notebook_id)
         if notebook.user_id != owner_id:
             raise PermissionError("only the owner can manage shares for this notebook")
+        # Scope the removal to this notebook so an owner can't delete a share on a
+        # notebook they don't own by passing a foreign share_id (IDOR).
+        if not any(s.id == share_id for s in self.store.shares_for_notebook(notebook_id)):
+            raise KeyError(f"Share not found on this notebook: {share_id}")
         self.store.remove_share(share_id)
         return {"ok": True, "removed": share_id}
 

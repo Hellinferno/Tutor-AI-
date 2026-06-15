@@ -55,7 +55,7 @@ production‑readiness — accounts with full self‑service (sign‑up, login, 
 delete account), per‑user privacy (IDOR‑safe), CORS + rate limiting + input caps, a `/metrics` health
 endpoint, one‑click sample onboarding, **and collaboration: notebook sharing (viewer/editor), a
 "shared with me" view, and student/instructor/admin roles**. This repository contains the
-**Phase 0 → Phase 7 vertical slice**: a working, fully‑tested core (150 tests) with an **interactive,
+**Phase 0 → Phase 7 vertical slice**: a working, fully‑tested core (151 tests) with an **interactive,
 responsive Next.js web app wired to the gateway**, all runnable without any external cloud services.
 
 > 🟢 **Non‑developer note:** "Phase 0 through Phase 7" means *the foundation, grounded Q&A +
