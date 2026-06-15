@@ -43,6 +43,11 @@ users ──< subscriptions        (latest row = current plan)   (Phase 4)
 users ──< usage_records        (one per metered action)       (Phase 4)
 users.role (student|instructor|admin)                         (Phase 7)
 notebooks ──< notebook_shares >── users (shared_with)          (Phase 7)
+
+users (instructor) ──< classes                                 (Phase 8)
+classes ──< class_enrollments >── users (student)              (Phase 8)
+classes ──< assignments → quiz | paper (source_id + kind)      (Phase 8)
+assignments ──< assignment_submissions ─1 attempts             (Phase 8)
 ```
 `└─<` = one‑to‑many, `└─1` = one‑to‑one. (`users` and `notebooks` may be null on some rows in the
 current local flow, which defaults the owner to `demo-user`.)
@@ -212,6 +217,38 @@ sufficient role. Shares cascade-delete with the notebook and with either party's
 
 ---
 
+## Phase 8 tables (classrooms, assignments & analytics)
+
+Added in [008_phase8_classrooms.sql](../packages/db/migrations/008_phase8_classrooms.sql) (Postgres)
+and mirrored in the SQLite store.
+
+### `classes`
+`id`, `instructor_id` → `users(id)`, `name`, `code` (unique 6‑char join code, unambiguous alphabet),
+`created_at`. Only users with role `instructor` or `admin` can create one. The code is the
+instructor's secret: it's returned to the instructor (and to admins) but never to enrolled students.
+
+### `class_enrollments`
+One row per (class, student): `id`, `class_id`, `student_id`, `joined_at`; unique on
+`(class_id, student_id)` so re-enrolling is a no-op. Students enroll via `POST /v1/classes/enroll`
+with the class's `code`. Instructors cannot enroll in their own class.
+
+### `assignments`
+A class-scoped pointer at an existing quiz/paper: `id`, `class_id`, `kind` (`quiz` | `paper`),
+`source_id` (quiz_id / paper_id), `title`, `due_at` (nullable), `created_at`. The instructor must
+own the notebook the source belongs to (otherwise `403`).
+
+### `assignment_submissions`
+Links a student's `Attempt` back to the assignment so the instructor can see class-wide submissions:
+`id`, `assignment_id`, `student_id`, `attempt_id` → `attempts(id)`, `submitted_at`. Created by
+`POST /v1/assignments/{id}/submit`, which runs the standard eval engine and writes both the
+attempt and the submission row.
+
+> **Cascades.** Deleting an instructor's account drops their classes, all of those classes' assignments
+> and submissions, and their enrollment rows. Deleting a student drops only their enrollment and
+> submission rows (the class survives for the instructor).
+
+---
+
 ## Enumerated types
 
 | Type | Values |
@@ -232,6 +269,7 @@ sufficient role. Shares cascade-delete with the notebook and with either party's
 | `subject_domain` (Phase 5, user) | `ai_ds`, `analytics`, `finance` |
 | `role` (Phase 7, user) | `student`, `instructor`, `admin` |
 | `share.role` (Phase 7) | `viewer`, `editor` |
+| `assignment.kind` (Phase 8) | `quiz`, `paper` |
 
 ---
 

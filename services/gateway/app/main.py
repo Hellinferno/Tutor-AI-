@@ -136,6 +136,25 @@ class StudyLabHandler(BaseHTTPRequestHandler):
         if parts == ["v1", "admin", "metrics"]:
             self._handle(lambda: (api.require_admin(self._session_user()), api.metrics_snapshot())[1])
             return
+        # ── Phase 8 GET routes ──
+        if parts == ["v1", "classes"]:
+            self._handle(lambda: api.list_my_classes(self._session_user()))
+            return
+        if parts == ["v1", "assignments", "me"]:
+            self._handle(lambda: api.list_assignments_for_student(self._session_user()))
+            return
+        if len(parts) == 4 and parts[:2] == ["v1", "classes"] and parts[3] == "roster":
+            self._handle(lambda: api.list_class_roster(self._session_user(), parts[2]))
+            return
+        if len(parts) == 4 and parts[:2] == ["v1", "classes"] and parts[3] == "assignments":
+            self._handle(lambda: api.list_class_assignments(self._session_user(), parts[2]))
+            return
+        if len(parts) == 4 and parts[:2] == ["v1", "classes"] and parts[3] == "analytics":
+            self._handle(lambda: api.class_analytics(self._session_user(), parts[2]))
+            return
+        if len(parts) == 4 and parts[:2] == ["v1", "assignments"] and parts[3] == "submissions":
+            self._handle(lambda: api.list_assignment_submissions(self._session_user(), parts[2]))
+            return
         self._json(404, {"error": {"code": "not_found", "message": f"No route for GET {path}"}})
 
     def do_POST(self) -> None:
@@ -275,6 +294,30 @@ class StudyLabHandler(BaseHTTPRequestHandler):
             return
         if len(parts) == 5 and parts[:2] == ["v1", "notebooks"] and parts[3:] == ["shares", "remove"]:
             self._handle(lambda: api.unshare_notebook(self._session_user(), parts[2], share_id=payload["share_id"]))
+            return
+        # ── Phase 8: Classrooms & assignments ──
+        if parts == ["v1", "classes"]:
+            self._handle(lambda: api.create_class(self._session_user(), payload["name"]))
+            return
+        if parts == ["v1", "classes", "enroll"]:
+            self._handle(lambda: api.enroll_in_class(self._session_user(), payload["code"]))
+            return
+        if len(parts) == 4 and parts[:2] == ["v1", "classes"] and parts[3] == "assignments":
+            self._handle(lambda: api.create_assignment(
+                instructor_id=self._session_user(),
+                class_id=parts[2],
+                kind=payload["kind"],
+                source_id=payload["source_id"],
+                title=payload["title"],
+                due_at=payload.get("due_at"),
+            ))
+            return
+        if len(parts) == 4 and parts[:2] == ["v1", "assignments"] and parts[3] == "submit":
+            self._handle(lambda: api.submit_assignment(self._session_user(), parts[2], answers=payload["answers"]))
+            return
+        # ── Phase 8: Admin user-role management ──
+        if len(parts) == 5 and parts[:2] == ["v1", "admin"] and parts[2] == "users" and parts[4] == "role":
+            self._handle(lambda: api.set_user_role(self._session_user(), parts[3], role=payload["role"]))
             return
         self._json(404, {"error": {"code": "not_found", "message": f"No route for POST {path}"}})
 

@@ -9,7 +9,7 @@ is **not built yet**. Keep this document accurate as the source of truth on proj
 
 ---
 
-## ✅ Done, working, and tested (Phase 0 → Phase 7)
+## ✅ Done, working, and tested (Phase 0 → Phase 8)
 
 | Area | State |
 |---|---|
@@ -17,7 +17,7 @@ is **not built yet**. Keep this document accurate as the source of truth on proj
 | Local env + `.env.example` | ✅ |
 | Docker Compose (postgres, redis, qdrant, gateway, rag, solver, shared volume) | ✅ |
 | Dockerfiles for gateway, rag, solver | ✅ |
-| DB migration (full Phase 1–7 schema) | ✅ written |
+| DB migration (full Phase 1–8 schema) | ✅ written |
 | Gateway + rag + solver services (runnable, `/health` + `/ready` + functional routes) | ✅ |
 | Shared API contracts (OpenAPI + TypeScript types, Phase 0–7) | ✅ |
 | Notebook creation, source upload, source guides | ✅ |
@@ -52,10 +52,15 @@ is **not built yet**. Keep this document accurate as the source of truth on proj
 | **Phase 6 — Onboarding** (one-click "Load sample" notebook; account settings UI) | ✅ |
 | **Phase 7 — Notebook sharing** (share with viewer/editor; "shared with me"; view‑vs‑edit access) | ✅ |
 | **Phase 7 — Roles** (student / instructor / admin; admin‑only `/v1/admin/*`; `STUDYLAB_ADMIN_EMAILS`) | ✅ |
-| **Interactive web app** (Next 15) — all 17 panels wired to the gateway, responsive/mobile, no static mockups | ✅ |
-| Test suite (151 tests) | ✅ |
+| **Phase 8 — Classrooms** (instructor‑owned classes, 6‑char join codes, enrollment, roster) | ✅ |
+| **Phase 8 — Assignments** (instructor assigns quiz/paper to a class with optional due date) | ✅ |
+| **Phase 8 — Submissions** (student submits → eval pipeline scores → submission linked to assignment) | ✅ |
+| **Phase 8 — Class analytics** (per‑assignment completion rate + avg %; class overall avg; top weak topics) | ✅ |
+| **Phase 8 — Admin role management** (`POST /v1/admin/users/{id}/role`; the way to mint instructors) | ✅ |
+| **Interactive web app** (Next 15) — all 18 panels wired to the gateway, responsive/mobile, no static mockups | ✅ |
+| Test suite (171 tests) | ✅ |
 
-**The Phase 1–7 acceptance gates pass.** See [10-testing-and-eval.md](10-testing-and-eval.md).
+**The Phase 1–8 acceptance gates pass.** See [10-testing-and-eval.md](10-testing-and-eval.md).
 
 ---
 
@@ -89,11 +94,13 @@ integration needs an external service or credentials (and can't be runtime‑ver
 ## ⚪ Not built yet (beyond the planned phases)
 
 The specs ([Instructions/10-development-phases.md](../Instructions/10-development-phases.md)) define
-Phases 0–4; **Phases 5–7 were added on top** to ship to real users: Phase 5 (auth, authorization,
+Phases 0–4; **Phases 5–8 were added on top** to ship to real users: Phase 5 (auth, authorization,
 quota enforcement, observability), Phase 6 (production hardening + user readiness: CORS, rate
-limiting, input caps, account self‑service, onboarding), and Phase 7 (collaboration — notebook
-sharing with viewer/editor roles, "shared with me", and student/instructor/admin roles). What still
-remains as a later concern:
+limiting, input caps, account self‑service, onboarding), Phase 7 (collaboration — notebook
+sharing with viewer/editor roles, "shared with me", and student/instructor/admin roles), and
+Phase 8 (classrooms — instructor‑owned classes, 6‑char join codes, assignments with due dates,
+submission tracking, and per‑class analytics; plus admin role management to mint instructors).
+What still remains as a later concern:
 
 - **Native mobile apps** (iOS/Android) — the web app is fully **responsive** (works on phones), but
   there is no native shell yet.
@@ -115,14 +122,18 @@ remains as a later concern:
 
 ## One‑line summary
 
-> **Phase 0 → Phase 7 are complete, tested (151 tests), and self‑contained, and the web app is fully
-> wired to the gateway (17 responsive panels, no static mockups).** Phase 5 added first‑party auth
+> **Phase 0 → Phase 8 are complete, tested (171 tests), and self‑contained, and the web app is fully
+> wired to the gateway (18 responsive panels, no static mockups).** Phase 5 added first‑party auth
 > (PBKDF2 + JWT), per‑user authorization, env‑gated quota enforcement, and a `/metrics` endpoint;
 > Phase 6 added production hardening (CORS, rate limiting, input‑size caps, `/ready`, IDOR‑safe
 > ownership checks, fail‑fast JWT secret) and user readiness (account self‑service + sample
 > onboarding); Phase 7 added collaboration — notebook **sharing** (viewer/editor) with a
 > "shared with me" view, share‑aware authorization, and **roles** (student/instructor/admin) with
-> admin‑only routes. Postgres, Qdrant, real embeddings/OCR, Redis, the real voice provider, connector
-> fetch‑workers, Stripe billing, a production metrics backend, and reset‑email delivery are
-> intentionally left as env‑gated adapters; auth / quota / rate‑limit *enforcement* is built but off
-> by default. Native mobile, horizontal‑scaling infra, and OAuth/SSO remain later concerns.
+> admin‑only routes; **Phase 8 added classrooms** — instructor‑owned classes with short join codes,
+> roster, assignments (quiz/paper with due dates), submission tracking through the eval pipeline,
+> per‑class analytics (completion rate, average score, top weak topics), and an admin
+> `POST /admin/users/{id}/role` route to mint instructors. Postgres, Qdrant, real embeddings/OCR,
+> Redis, the real voice provider, connector fetch‑workers, Stripe billing, a production metrics
+> backend, and reset‑email delivery are intentionally left as env‑gated adapters; auth / quota /
+> rate‑limit *enforcement* is built but off by default. Native mobile, horizontal‑scaling infra, and
+> OAuth/SSO remain later concerns.

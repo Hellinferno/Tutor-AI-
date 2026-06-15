@@ -2,10 +2,16 @@ import type {
   AnswerKey,
   Artifact,
   AskResponse,
+  Assignment,
+  AssignmentKind,
+  AssignmentSubmissionsResponse,
   Attempt,
   AuthResult,
   AuthUser,
   CardStats,
+  ClassAnalyticsResponse,
+  ClassAssignmentsResponse,
+  ClassroomClass,
   ConnectorType,
   EvalReport,
   ImportList,
@@ -13,6 +19,8 @@ import type {
   KnowledgeState,
   MetricsSnapshot,
   MultiAgentTeachingSession,
+  MyAssignmentsResponse,
+  MyClassesResponse,
   Notebook,
   NotebookShare,
   Plan,
@@ -20,6 +28,7 @@ import type {
   QuestionPaper,
   Quiz,
   RevisionCard,
+  RosterResponse,
   SharedWithItem,
   ShareRole,
   SolveResponse,
@@ -329,4 +338,66 @@ export function getMetrics(): Promise<MetricsSnapshot> {
     if (!r.ok) throw new ApiError(r.status, await readError(r));
     return r.json() as Promise<MetricsSnapshot>;
   });
+}
+
+// ── Phase 8: Classrooms, assignments, class analytics ──
+export function createClass(name: string): Promise<ClassroomClass> {
+  return post<ClassroomClass>("/classes", { name });
+}
+
+export function listMyClasses(): Promise<MyClassesResponse> {
+  return get<MyClassesResponse>("/classes");
+}
+
+export function enrollInClass(code: string): Promise<{ id: string; class_id: string; student_id: string; joined_at: string }> {
+  return post<{ id: string; class_id: string; student_id: string; joined_at: string }>("/classes/enroll", { code });
+}
+
+export function getClassRoster(classId: string): Promise<RosterResponse> {
+  return get<RosterResponse>(`/classes/${classId}/roster`);
+}
+
+export function createAssignment(
+  classId: string,
+  kind: AssignmentKind,
+  sourceId: string,
+  title: string,
+  dueAt?: string | null,
+): Promise<Assignment> {
+  return post<Assignment>(`/classes/${classId}/assignments`, {
+    kind,
+    source_id: sourceId,
+    title,
+    due_at: dueAt ?? null,
+  });
+}
+
+export function listClassAssignments(classId: string): Promise<ClassAssignmentsResponse> {
+  return get<ClassAssignmentsResponse>(`/classes/${classId}/assignments`);
+}
+
+export function listMyAssignments(): Promise<MyAssignmentsResponse> {
+  return get<MyAssignmentsResponse>("/assignments/me");
+}
+
+export function submitAssignment(
+  assignmentId: string,
+  answers: { question_id: string; answer: string }[],
+): Promise<{ submission: { id: string; assignment_id: string; submitted_at: string }; attempt: Attempt }> {
+  return post<{ submission: { id: string; assignment_id: string; submitted_at: string }; attempt: Attempt }>(
+    `/assignments/${assignmentId}/submit`,
+    { answers },
+  );
+}
+
+export function listAssignmentSubmissions(assignmentId: string): Promise<AssignmentSubmissionsResponse> {
+  return get<AssignmentSubmissionsResponse>(`/assignments/${assignmentId}/submissions`);
+}
+
+export function getClassAnalytics(classId: string): Promise<ClassAnalyticsResponse> {
+  return get<ClassAnalyticsResponse>(`/classes/${classId}/analytics`);
+}
+
+export function setUserRole(userId: string, role: "student" | "instructor" | "admin"): Promise<AuthUser> {
+  return post<AuthUser>(`/admin/users/${userId}/role`, { role });
 }

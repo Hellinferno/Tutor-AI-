@@ -2,6 +2,7 @@ from .analytics import AnalyticsEngine
 from .api import StudyLabAPI
 from .artifacts import ArtifactGenerator
 from .auth import AuthEngine, AuthError, hash_password, verify_password
+from .classrooms import ClassroomEngine
 from .connectors import SourceConnectorEngine
 from .eval import EvalEngine
 from .metrics import MetricsCollector
@@ -34,6 +35,7 @@ __all__ = [
     "AuthEngine",
     "AuthError",
     "BillingProvider",
+    "ClassroomEngine",
     "EvalEngine",
     "GeminiVoiceProvider",
     "hash_password",

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
-  title: StudyLab Phase 0-7 API
-  version: 0.7.0
+  title: StudyLab Phase 0-8 API
+  version: 0.8.0
 servers:
   - url: /v1
 paths:
@@ -184,3 +184,34 @@ paths:
   /admin/metrics:
     get:
       summary: Observability snapshot (admin role required)
+  /admin/users/{user_id}/role:
+    post:
+      summary: Set a user's role (admin only; used to mint instructors)
+  /classes:
+    get:
+      summary: List classes the authenticated user instructs or is enrolled in
+    post:
+      summary: Create a class (instructor or admin role required)
+  /classes/enroll:
+    post:
+      summary: Enroll in a class with its short join code
+  /classes/{class_id}/roster:
+    get:
+      summary: List the roster of a class (instructor only)
+  /classes/{class_id}/assignments:
+    get:
+      summary: List assignments for a class (instructor or enrolled student)
+    post:
+      summary: Create a quiz/paper assignment for the class (instructor only)
+  /classes/{class_id}/analytics:
+    get:
+      summary: Class-wide analytics — completion rate, avg score, top weak topics (instructor only)
+  /assignments/me:
+    get:
+      summary: List the authenticated student's assignments across all enrolled classes
+  /assignments/{assignment_id}/submit:
+    post:
+      summary: Submit answers for an assignment (enrolled student); evaluates + links to assignment
+  /assignments/{assignment_id}/submissions:
+    get:
+      summary: List all submissions for an assignment (instructor only)

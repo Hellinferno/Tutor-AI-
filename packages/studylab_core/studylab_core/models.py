@@ -17,6 +17,7 @@ PlanTier = Literal["free", "scholar", "pro"]
 MeteredAction = Literal["ask", "solve", "quiz", "paper", "artifact", "source_import", "teaching"]
 RoleType = Literal["student", "instructor", "admin"]
 ShareRole = Literal["viewer", "editor"]
+AssignmentKind = Literal["quiz", "paper"]
 
 
 def utc_now() -> str:
@@ -377,3 +378,46 @@ class UsageRecord:
     billing_period: str  # YYYY-MM
     quantity: int = 1
     created_at: str = field(default_factory=utc_now)
+
+
+# ── Phase 8: Classrooms, assignments, class analytics ─────────────────────
+
+@dataclass
+class Class:
+    """An instructor-owned classroom. Students join via the short `code`."""
+
+    id: str
+    instructor_id: str
+    name: str
+    code: str  # short join code (e.g. 6-char alphanumeric)
+    created_at: str = field(default_factory=utc_now)
+
+
+@dataclass
+class ClassEnrollment:
+    id: str
+    class_id: str
+    student_id: str
+    joined_at: str = field(default_factory=utc_now)
+
+
+@dataclass
+class Assignment:
+    """A class-scoped assignment that points at an existing quiz or paper."""
+
+    id: str
+    class_id: str
+    kind: AssignmentKind
+    source_id: str  # quiz_id or question_paper_id
+    title: str
+    due_at: str | None = None
+    created_at: str = field(default_factory=utc_now)
+
+
+@dataclass
+class AssignmentSubmission:
+    id: str
+    assignment_id: str
+    student_id: str
+    attempt_id: str
+    submitted_at: str = field(default_factory=utc_now)

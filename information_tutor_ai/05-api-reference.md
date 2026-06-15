@@ -431,6 +431,70 @@ emails in `STUDYLAB_ADMIN_EMAILS`.
 
 ---
 
+## Phase 8 endpoints — classrooms, assignments & class analytics
+
+All Phase 8 routes act as **the logged-in user** (bearer token, else `401`). Only users with the
+`instructor` or `admin` role can create classes; once promoted, the instructor owns the class and
+the join code. Students enroll via the join code and submit assignments through the standard eval
+pipeline; the submission is linked back to the assignment for class-wide analytics.
+
+### `POST /v1/admin/users/{user_id}/role`  *(admin only — `403` otherwise)*
+Promote/demote a user. Body: `{ "role": "instructor" }` (or `"student"` / `"admin"`).
+**This is how instructors are minted in Phase 8** — `STUDYLAB_ADMIN_EMAILS` only seeds admins.
+
+### `POST /v1/classes`  ·  `GET /v1/classes`
+Create a class (`{ "name": "ML 101" }` → `Class { id, instructor_id, name, code, created_at }`).
+Listing returns `{ "teaching": [Class…], "enrolled": [{id, name, instructor_id, joined_at}…] }`.
+Student rows deliberately omit the join code (code is the instructor's secret).
+
+### `POST /v1/classes/enroll`
+Body `{ "code": "ABC123" }`. Idempotent (re-enrolling returns the existing enrollment). Unknown
+code → `404`; instructor enrolling in their own class → `400`.
+
+### `GET /v1/classes/{id}/roster`  *(class instructor or admin only)*
+`{ "class": Class, "roster": [{ enrollment_id, student_id, email, joined_at }…] }`.
+
+### `POST /v1/classes/{id}/assignments`  *(class instructor or admin only)*
+Body `{ "kind": "quiz"|"paper", "source_id": "<quiz_id|paper_id>", "title": "HW 1", "due_at": "2026-07-01T23:59:00Z" }`.
+The `source_id` must point at a quiz/paper in **the instructor's own notebook** (else `403`).
+Returns the `Assignment`.
+
+### `GET /v1/classes/{id}/assignments`  *(class instructor or enrolled student)*
+`{ "class": Class, "assignments": [Assignment + view-specific fields…] }`.
+Instructor view adds `submission_count`. Student view adds `submitted`, `submitted_at`, `attempt_id`,
+`total_score`, `max_score` when they've submitted.
+
+### `GET /v1/assignments/me`
+`{ "assignments": [Assignment + class_name + submission status…] }` across every class the caller
+is enrolled in (sorted by `due_at`).
+
+### `POST /v1/assignments/{id}/submit`  *(enrolled student)*
+Body `{ "answers": [{question_id, answer}…] }`. Runs the standard eval pipeline (same as
+`/quizzes/{id}/attempt`), creates an `Attempt`, and links it via an `AssignmentSubmission`.
+Returns `{ "submission": {…}, "attempt": Attempt }`.
+
+### `GET /v1/assignments/{id}/submissions`  *(class instructor or admin only)*
+`{ "class": Class, "assignment": Assignment, "submissions": [{ submission_id, student_id, email,
+submitted_at, total_score, max_score, attempt_id }…] }`.
+
+### `GET /v1/classes/{id}/analytics`  *(class instructor or admin only)*
+```json
+{
+  "class": Class,
+  "enrolled_count": 12,
+  "assignment_count": 3,
+  "overall_avg_percentage": 78.4,
+  "per_assignment": [
+    { "assignment_id": "...", "title": "HW 1", "kind": "quiz", "due_at": "...",
+      "submitted_count": 9, "enrolled_count": 12, "completion_rate": 75.0, "avg_percentage": 81.2 }
+  ],
+  "top_weak_topics": ["gradient descent", "regularization"]
+}
+```
+Weak topics are aggregated from the per-attempt eval reports across all submissions in the class.
+
+---
+
 ## Error format
 ```json
 { "error": { "code": "not_found" | "bad_request", "message": "…" } }

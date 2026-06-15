@@ -39,13 +39,14 @@ All panels are **interactive client components** (`"use client"`, React state, c
 
 | File | What it is |
 |---|---|
-| `app/layout.tsx`, `app/page.tsx`, `app/styles.css` | App router root; main page (wraps the 17 panels in `NotebookProvider` + a notebook bar); responsive/mobile styles. |
-| `lib/api.ts` | Typed client for every gateway endpoint (Phase 1–7, incl. account self‑service + sharing) with an `ApiError` type + bearer‑token handling (`setAuthToken`/`loadAuthToken`). |
+| `app/layout.tsx`, `app/page.tsx`, `app/styles.css` | App router root; main page (wraps the 18 panels in `NotebookProvider` + a notebook bar); responsive/mobile styles. |
+| `lib/api.ts` | Typed client for every gateway endpoint (Phase 1–8, incl. account self‑service, sharing, classrooms) with an `ApiError` type + bearer‑token handling (`setAuthToken`/`loadAuthToken`). |
 | `lib/types.ts` | Response interfaces mirroring the Python models / shared types. |
 | `lib/notebook-context.tsx` | `NotebookProvider` / `useNotebook` — shares the active notebook id, last attempt id, and **signed‑in user id/email** across panels. |
 | `components/notebook-bar.tsx` | Create / show the active notebook (header); **Phase 6** one-click "Load sample" onboarding. |
 | `components/auth-panel.tsx` | **Phase 5–6** — register / sign in / sign out; **Phase 6** account self-service (change/reset password, edit subject, delete account); shows role. |
 | `components/share-panel.tsx` | **Phase 7** — share the active notebook (viewer/editor), list/revoke shares, and open notebooks "shared with me". |
+| `components/classrooms-panel.tsx` | **Phase 8** — create class (instructor), enroll via code (student), roster, create assignments, view submissions + class analytics, "my assignments" feed. |
 | `components/source-panel.tsx` | Upload sources, render the generated source guide. |
 | `components/connectors-panel.tsx` | **Phase 4** — import website / YouTube / audio / Google Doc / Slides; lists imports. |
 | `components/notebook-chat.tsx` | Grounded Q&A with citations, grounding badge, clickable follow-ups. |
@@ -75,7 +76,7 @@ Each service is a thin entrypoint over `studylab_core`. They share the env‑sel
 
 | File | Service | Port (env) | Routes |
 |---|---|---|---|
-| `gateway/app/main.py` | **gateway** | 8000 (`PORT`) | Full API: Phase 1–4 routes, auth/`/metrics` + bearer enforcement & quota 402 (Phase 5), account self‑service + IDOR‑safe ownership, CORS, rate‑limit 429, input caps, `/ready` (Phase 6), **notebook sharing + view/edit authorization + admin‑only routes (Phase 7)**. |
+| `gateway/app/main.py` | **gateway** | 8000 (`PORT`) | Full API: Phase 1–4 routes, auth/`/metrics` + bearer enforcement & quota 402 (Phase 5), account self‑service + IDOR‑safe ownership, CORS, rate‑limit 429, input caps, `/ready` (Phase 6), notebook sharing + view/edit authorization + admin‑only routes (Phase 7), **classroom + assignment + analytics routes and `POST /admin/users/{id}/role` (Phase 8)**. |
 | `rag/app/main.py` | **rag** | 8001 (`RAG_PORT`) | Internal mirror of the Phase 1–5 route table; **Phase 6** binds loopback (`RAG_BIND_HOST`) — runs behind the authenticated gateway (sharing/admin are gateway‑only). |
 | `solver/app/main.py` | **solver** | 8002 (`SOLVER_PORT`) | solve, reveal. |
 
@@ -90,7 +91,8 @@ engine in tests/other code. All expose `GET /health`.
 |---|---|
 | `__init__.py` | Public exports (`StudyLabAPI`, stores, engines, prompt loaders, `make_store_from_env`). |
 | `api.py` | `StudyLabAPI` façade — the method surface every service calls. |
-| `models.py` | Dataclasses for all phases: Phase 1 (`Notebook`, `Source`, `SourceChunk`, `SourceGuide`, `Citation`, `Solution`, `Artifact`, responses); **Phase 2** (`WhiteboardConcept`/`WhiteboardSession`, `QuizQuestion`/`Quiz`, `PaperSection`/`QuestionPaper`, `Attempt`, `AnswerKey`, `EvalReport`); **Phase 3** (`RevisionCard`, `Session`, `StudentProfile`, `TopicMastery`, `KnowledgeState`, `VoiceResult`); **Phase 4** (`SourceImport`, `AgentTurn`/`MultiAgentTeachingSession`, `Plan`, `Subscription`, `UsageRecord`); **Phase 5** (`User`); **Phase 7** (`NotebookShare`, `role` on `User`); plus the `…`/`ConnectorType`/`PlanTier`/`MeteredAction`/`RoleType`/`ShareRole` literals. |
+| `models.py` | Dataclasses for all phases: Phase 1 (`Notebook`, `Source`, `SourceChunk`, `SourceGuide`, `Citation`, `Solution`, `Artifact`, responses); **Phase 2** (`WhiteboardConcept`/`WhiteboardSession`, `QuizQuestion`/`Quiz`, `PaperSection`/`QuestionPaper`, `Attempt`, `AnswerKey`, `EvalReport`); **Phase 3** (`RevisionCard`, `Session`, `StudentProfile`, `TopicMastery`, `KnowledgeState`, `VoiceResult`); **Phase 4** (`SourceImport`, `AgentTurn`/`MultiAgentTeachingSession`, `Plan`, `Subscription`, `UsageRecord`); **Phase 5** (`User`); **Phase 7** (`NotebookShare`, `role` on `User`); **Phase 8** (`Class`, `ClassEnrollment`, `Assignment`, `AssignmentSubmission`); plus the `…`/`ConnectorType`/`PlanTier`/`MeteredAction`/`RoleType`/`ShareRole`/`AssignmentKind` literals. |
+| `classrooms.py` | **Phase 8** — `ClassroomEngine`: create/list classes, enroll via code, roster, create assignments, list assignments (instructor or student view), submit (delegates to `EvalEngine`), list submissions, per‑class analytics (completion rate, avg %, top weak topics). |
 | `store.py` | `InMemoryStudyLabStore` — default ephemeral store (Phase 1–7 collections incl. users + notebook_shares; `delete_user` cascade). |
 | `store_sqlite.py` | `SqliteStudyLabStore` — durable store with identical surface (Phase 1–7 tables incl. users + notebook_shares; `save_user`/`delete_user`/sharing); `make_store_from_env`. |
 | `connectors.py` | **Phase 4** — `SourceConnectorEngine`: validates/normalizes website/YouTube/audio/Doc/Slides payloads, then chunks + guides + cites via `RagEngine`. |
@@ -129,6 +131,7 @@ engine in tests/other code. All expose `GET /health`.
 | `db/migrations/005_phase5_auth_observability.sql` | **Phase 5** Postgres schema: `users.password_hash` + email/notebook‑owner indexes (JWT is stateless; metrics are in‑process). |
 | `db/migrations/006_phase6_hardening.sql` | **Phase 6** — no new tables (hardening is app‑layer; account deletion cascades existing tables); adds supporting indexes. |
 | `db/migrations/007_phase7_sharing_roles.sql` | **Phase 7** — `users.role` column + `notebook_shares` table (viewer/editor) + indexes. |
+| `db/migrations/008_phase8_classrooms.sql` | **Phase 8** — `classes`, `class_enrollments`, `assignments`, `assignment_submissions` tables + indexes (Postgres‑shaped; SQLite store mirrors them). |
 | `eval/run_eval.py` | The solver quality gate (asserts `false_verified_rate == 0`). |
 | `eval/benchmarks/phase1_solver.json` | 15 benchmark cases (symbolic / formula / code_exec). |
 | `prompts/registry.json` + `*.md` | Prompt templates: source_guide, notebook_answer, solver_system, artifact_summary_notes, artifact_study_guide. |

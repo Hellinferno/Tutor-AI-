@@ -7,7 +7,11 @@ from uuid import uuid4
 from .models import (
     AnswerKey,
     Artifact,
+    Assignment,
+    AssignmentSubmission,
     Attempt,
+    Class,
+    ClassEnrollment,
     EvalReport,
     Notebook,
     NotebookShare,
@@ -68,6 +72,12 @@ class InMemoryStudyLabStore:
         # Phase 7 stores (collaboration & sharing)
         self.notebook_shares: dict[str, NotebookShare] = {}
 
+        # Phase 8 stores (classrooms, assignments)
+        self.classes: dict[str, Class] = {}
+        self.enrollments: dict[str, ClassEnrollment] = {}
+        self.assignments: dict[str, Assignment] = {}
+        self.submissions: dict[str, AssignmentSubmission] = {}
+
     def next_id(self, prefix: str) -> str:
         return f"{prefix}_{uuid4().hex[:12]}"
 
@@ -117,6 +127,61 @@ class InMemoryStudyLabStore:
                 return s
         return None
 
+    # ── Phase 8: Classrooms ──────────────────────────────────────────────
+
+    def add_class(self, cls: Class) -> Class:
+        self.classes[cls.id] = cls
+        return cls
+
+    def require_class(self, class_id: str) -> Class:
+        try:
+            return self.classes[class_id]
+        except KeyError as exc:
+            raise KeyError(f"Class not found: {class_id}") from exc
+
+    def all_classes(self) -> list[Class]:
+        return sorted(self.classes.values(), key=lambda c: c.created_at)
+
+    def class_by_code(self, code: str) -> Class | None:
+        for c in self.classes.values():
+            if c.code == code:
+                return c
+        return None
+
+    def add_enrollment(self, enrollment: ClassEnrollment) -> ClassEnrollment:
+        self.enrollments[enrollment.id] = enrollment
+        return enrollment
+
+    def enrollments_for_class(self, class_id: str) -> list[ClassEnrollment]:
+        return [e for e in self.enrollments.values() if e.class_id == class_id]
+
+    def enrollments_for_user(self, user_id: str) -> list[ClassEnrollment]:
+        return [e for e in self.enrollments.values() if e.student_id == user_id]
+
+    def add_assignment(self, assignment: Assignment) -> Assignment:
+        self.assignments[assignment.id] = assignment
+        return assignment
+
+    def require_assignment(self, assignment_id: str) -> Assignment:
+        try:
+            return self.assignments[assignment_id]
+        except KeyError as exc:
+            raise KeyError(f"Assignment not found: {assignment_id}") from exc
+
+    def assignments_for_class(self, class_id: str) -> list[Assignment]:
+        rows = [a for a in self.assignments.values() if a.class_id == class_id]
+        return sorted(rows, key=lambda a: a.created_at)
+
+    def add_submission(self, submission: AssignmentSubmission) -> AssignmentSubmission:
+        self.submissions[submission.id] = submission
+        return submission
+
+    def submissions_for_assignment(self, assignment_id: str) -> list[AssignmentSubmission]:
+        return [s for s in self.submissions.values() if s.assignment_id == assignment_id]
+
+    def submissions_for_student(self, student_id: str) -> list[AssignmentSubmission]:
+        return [s for s in self.submissions.values() if s.student_id == student_id]
+
     def delete_user(self, user_id: str) -> None:
         """Delete a user and cascade-remove their owned data (account deletion)."""
         notebook_ids = {nb.id for nb in self.notebooks.values() if nb.user_id == user_id}
@@ -155,6 +220,13 @@ class InMemoryStudyLabStore:
         _drop(self.usage_records, lambda v: v.user_id == user_id)
         # Shares the user owns (notebooks deleted) or that were granted to them
         _drop(self.notebook_shares, lambda v: v.notebook_id in notebook_ids or v.shared_with_id == user_id or v.owner_id == user_id)
+        # Phase 8: classes the user instructs (cascade), classes they're enrolled in (drop enrollment + submissions)
+        instructed_class_ids = {c.id for c in self.classes.values() if c.instructor_id == user_id}
+        assignment_ids_in_instructed = {a.id for a in self.assignments.values() if a.class_id in instructed_class_ids}
+        _drop(self.submissions, lambda v: v.student_id == user_id or v.assignment_id in assignment_ids_in_instructed)
+        _drop(self.assignments, lambda v: v.class_id in instructed_class_ids)
+        _drop(self.enrollments, lambda v: v.student_id == user_id or v.class_id in instructed_class_ids)
+        _drop(self.classes, lambda v: v.id in instructed_class_ids)
         self.users.pop(user_id, None)
 
     def add_notebook(self, title: str, user_id: str = "demo-user") -> Notebook:

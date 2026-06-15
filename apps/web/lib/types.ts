@@ -366,6 +366,104 @@ export interface SharedWithItem {
   owner_id: string;
 }
 
+// ── Phase 8: classrooms, assignments, class analytics ──
+
+export type AssignmentKind = "quiz" | "paper";
+
+export interface ClassroomClass {
+  id: string;
+  instructor_id: string;
+  name: string;
+  code: string;
+  created_at: string;
+}
+
+export interface EnrolledClassItem {
+  id: string;
+  name: string;
+  instructor_id: string;
+  joined_at: string;
+}
+
+export interface MyClassesResponse {
+  teaching: ClassroomClass[];
+  enrolled: EnrolledClassItem[];
+}
+
+export interface RosterEntry {
+  enrollment_id: string;
+  student_id: string;
+  email: string | null;
+  joined_at: string;
+}
+
+export interface RosterResponse {
+  class: ClassroomClass;
+  roster: RosterEntry[];
+}
+
+export interface Assignment {
+  id: string;
+  class_id: string;
+  kind: AssignmentKind;
+  source_id: string;
+  title: string;
+  due_at: string | null;
+  created_at: string;
+  submission_count?: number;
+  submitted?: boolean;
+  submitted_at?: string;
+  attempt_id?: string;
+  total_score?: number;
+  max_score?: number;
+  class_name?: string;
+}
+
+export interface ClassAssignmentsResponse {
+  class: ClassroomClass;
+  assignments: Assignment[];
+}
+
+export interface MyAssignmentsResponse {
+  assignments: Assignment[];
+}
+
+export interface SubmissionRow {
+  submission_id: string;
+  student_id: string;
+  email: string | null;
+  submitted_at: string;
+  total_score: number;
+  max_score: number;
+  attempt_id: string;
+}
+
+export interface AssignmentSubmissionsResponse {
+  class: ClassroomClass;
+  assignment: Assignment;
+  submissions: SubmissionRow[];
+}
+
+export interface AssignmentAnalyticsRow {
+  assignment_id: string;
+  title: string;
+  kind: AssignmentKind;
+  due_at: string | null;
+  submitted_count: number;
+  enrolled_count: number;
+  completion_rate: number;
+  avg_percentage: number | null;
+}
+
+export interface ClassAnalyticsResponse {
+  class: ClassroomClass;
+  enrolled_count: number;
+  assignment_count: number;
+  overall_avg_percentage: number | null;
+  per_assignment: AssignmentAnalyticsRow[];
+  top_weak_topics: string[];
+}
+
 export interface AuthResult {
   user: AuthUser;
   token: string;

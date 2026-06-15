@@ -11,9 +11,13 @@ from uuid import uuid4
 from .models import (
     AnswerKey,
     Artifact,
+    Assignment,
+    AssignmentSubmission,
     Attempt,
     AgentTurn,
     Citation,
+    Class,
+    ClassEnrollment,
     EvalReport,
     MultiAgentTeachingSession,
     Notebook,
@@ -241,6 +245,42 @@ CREATE INDEX IF NOT EXISTS idx_subscriptions_user ON subscriptions (user_id, cre
 CREATE INDEX IF NOT EXISTS idx_usage_user_period ON usage_records (user_id, billing_period);
 CREATE INDEX IF NOT EXISTS idx_shares_notebook ON notebook_shares (notebook_id);
 CREATE INDEX IF NOT EXISTS idx_shares_user ON notebook_shares (shared_with_id);
+CREATE TABLE IF NOT EXISTS classes (
+  id TEXT PRIMARY KEY,
+  instructor_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  code TEXT NOT NULL UNIQUE,
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS class_enrollments (
+  id TEXT PRIMARY KEY,
+  class_id TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  joined_at TEXT NOT NULL,
+  UNIQUE (class_id, student_id)
+);
+CREATE TABLE IF NOT EXISTS assignments (
+  id TEXT PRIMARY KEY,
+  class_id TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  source_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  due_at TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS assignment_submissions (
+  id TEXT PRIMARY KEY,
+  assignment_id TEXT NOT NULL,
+  student_id TEXT NOT NULL,
+  attempt_id TEXT NOT NULL,
+  submitted_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_classes_instructor ON classes (instructor_id);
+CREATE INDEX IF NOT EXISTS idx_enroll_class ON class_enrollments (class_id);
+CREATE INDEX IF NOT EXISTS idx_enroll_student ON class_enrollments (student_id);
+CREATE INDEX IF NOT EXISTS idx_assignments_class ON assignments (class_id);
+CREATE INDEX IF NOT EXISTS idx_submissions_assignment ON assignment_submissions (assignment_id);
+CREATE INDEX IF NOT EXISTS idx_submissions_student ON assignment_submissions (student_id);
 """
 
 
@@ -340,6 +380,12 @@ class SqliteStudyLabStore:
         # Phase 4 table views (pricing & economics)
         self.subscriptions = _TableView(self._all_subscriptions, self._get_subscription)
         self.usage_records = _TableView(self._all_usage_records, self._get_usage_record)
+
+        # Phase 8 table views (classrooms)
+        self.classes = _TableView(self._all_classes_map, self._get_class)
+        self.enrollments = _TableView(self._all_enrollments_map, self._get_enrollment)
+        self.assignments = _TableView(self._all_assignments_map, self._get_assignment)
+        self.submissions = _TableView(self._all_submissions_map, self._get_submission)
 
     def _ensure_compat_columns(self) -> None:
         columns = {row["name"] for row in self._conn.execute("PRAGMA table_info(answer_keys)").fetchall()}
@@ -509,6 +555,28 @@ class SqliteStudyLabStore:
             )
             if notebook_ids:
                 self._conn.execute(f"DELETE FROM notebook_shares WHERE notebook_id IN ({placeholders})", notebook_ids)
+            # Phase 8: classes the user instructs cascade to assignments/submissions/enrollments.
+            instructed = self._conn.execute(
+                "SELECT id FROM classes WHERE instructor_id=?", (user_id,)
+            ).fetchall()
+            instructed_ids = [r["id"] for r in instructed]
+            if instructed_ids:
+                ip = ",".join("?" for _ in instructed_ids)
+                assign = self._conn.execute(
+                    f"SELECT id FROM assignments WHERE class_id IN ({ip})", instructed_ids
+                ).fetchall()
+                assign_ids = [r["id"] for r in assign]
+                if assign_ids:
+                    ap = ",".join("?" for _ in assign_ids)
+                    self._conn.execute(
+                        f"DELETE FROM assignment_submissions WHERE assignment_id IN ({ap})", assign_ids
+                    )
+                self._conn.execute(f"DELETE FROM assignments WHERE class_id IN ({ip})", instructed_ids)
+                self._conn.execute(f"DELETE FROM class_enrollments WHERE class_id IN ({ip})", instructed_ids)
+                self._conn.execute(f"DELETE FROM classes WHERE id IN ({ip})", instructed_ids)
+            # Enrollments and submissions where the user was the student.
+            self._conn.execute("DELETE FROM assignment_submissions WHERE student_id=?", (user_id,))
+            self._conn.execute("DELETE FROM class_enrollments WHERE student_id=?", (user_id,))
             self._conn.execute("DELETE FROM users WHERE id=?", (user_id,))
             self._conn.commit()
 
@@ -1567,6 +1635,200 @@ class SqliteStudyLabStore:
         with self._lock:
             rows = self._conn.execute("SELECT * FROM topic_masteries").fetchall()
         return {row["id"]: self._row_to_topic_mastery(row) for row in rows}
+
+    # ── Phase 8: Classrooms, assignments ──────────────────────────────────
+
+    def add_class(self, cls: Class) -> Class:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO classes (id, instructor_id, name, code, created_at) VALUES (?, ?, ?, ?, ?)",
+                (cls.id, cls.instructor_id, cls.name, cls.code, cls.created_at),
+            )
+            self._conn.commit()
+        return cls
+
+    def require_class(self, class_id: str) -> Class:
+        cls = self._get_class(class_id)
+        if cls is None:
+            raise KeyError(f"Class not found: {class_id}")
+        return cls
+
+    def all_classes(self) -> list[Class]:
+        with self._lock:
+            rows = self._conn.execute("SELECT * FROM classes ORDER BY created_at").fetchall()
+        return [self._row_to_class(r) for r in rows]
+
+    def class_by_code(self, code: str) -> Class | None:
+        with self._lock:
+            row = self._conn.execute("SELECT * FROM classes WHERE code=?", (code,)).fetchone()
+        return self._row_to_class(row) if row else None
+
+    def add_enrollment(self, enrollment: ClassEnrollment) -> ClassEnrollment:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO class_enrollments (id, class_id, student_id, joined_at) VALUES (?, ?, ?, ?)",
+                (enrollment.id, enrollment.class_id, enrollment.student_id, enrollment.joined_at),
+            )
+            self._conn.commit()
+        return enrollment
+
+    def enrollments_for_class(self, class_id: str) -> list[ClassEnrollment]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM class_enrollments WHERE class_id=? ORDER BY joined_at", (class_id,)
+            ).fetchall()
+        return [self._row_to_enrollment(r) for r in rows]
+
+    def enrollments_for_user(self, user_id: str) -> list[ClassEnrollment]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM class_enrollments WHERE student_id=? ORDER BY joined_at", (user_id,)
+            ).fetchall()
+        return [self._row_to_enrollment(r) for r in rows]
+
+    def add_assignment(self, assignment: Assignment) -> Assignment:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO assignments (id, class_id, kind, source_id, title, due_at, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    assignment.id,
+                    assignment.class_id,
+                    assignment.kind,
+                    assignment.source_id,
+                    assignment.title,
+                    assignment.due_at,
+                    assignment.created_at,
+                ),
+            )
+            self._conn.commit()
+        return assignment
+
+    def require_assignment(self, assignment_id: str) -> Assignment:
+        a = self._get_assignment(assignment_id)
+        if a is None:
+            raise KeyError(f"Assignment not found: {assignment_id}")
+        return a
+
+    def assignments_for_class(self, class_id: str) -> list[Assignment]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM assignments WHERE class_id=? ORDER BY created_at", (class_id,)
+            ).fetchall()
+        return [self._row_to_assignment(r) for r in rows]
+
+    def add_submission(self, submission: AssignmentSubmission) -> AssignmentSubmission:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO assignment_submissions (id, assignment_id, student_id, attempt_id, submitted_at) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (
+                    submission.id,
+                    submission.assignment_id,
+                    submission.student_id,
+                    submission.attempt_id,
+                    submission.submitted_at,
+                ),
+            )
+            self._conn.commit()
+        return submission
+
+    def submissions_for_assignment(self, assignment_id: str) -> list[AssignmentSubmission]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM assignment_submissions WHERE assignment_id=? ORDER BY submitted_at",
+                (assignment_id,),
+            ).fetchall()
+        return [self._row_to_submission(r) for r in rows]
+
+    def submissions_for_student(self, student_id: str) -> list[AssignmentSubmission]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM assignment_submissions WHERE student_id=? ORDER BY submitted_at",
+                (student_id,),
+            ).fetchall()
+        return [self._row_to_submission(r) for r in rows]
+
+    # ── Phase 8 row mappers + table views ────────────────────────────────
+
+    def _get_class(self, key: str) -> Class | None:
+        with self._lock:
+            row = self._conn.execute("SELECT * FROM classes WHERE id=?", (key,)).fetchone()
+        return self._row_to_class(row) if row else None
+
+    def _all_classes_map(self) -> dict[str, Class]:
+        with self._lock:
+            rows = self._conn.execute("SELECT * FROM classes").fetchall()
+        return {r["id"]: self._row_to_class(r) for r in rows}
+
+    def _get_enrollment(self, key: str) -> ClassEnrollment | None:
+        with self._lock:
+            row = self._conn.execute("SELECT * FROM class_enrollments WHERE id=?", (key,)).fetchone()
+        return self._row_to_enrollment(row) if row else None
+
+    def _all_enrollments_map(self) -> dict[str, ClassEnrollment]:
+        with self._lock:
+            rows = self._conn.execute("SELECT * FROM class_enrollments").fetchall()
+        return {r["id"]: self._row_to_enrollment(r) for r in rows}
+
+    def _get_assignment(self, key: str) -> Assignment | None:
+        with self._lock:
+            row = self._conn.execute("SELECT * FROM assignments WHERE id=?", (key,)).fetchone()
+        return self._row_to_assignment(row) if row else None
+
+    def _all_assignments_map(self) -> dict[str, Assignment]:
+        with self._lock:
+            rows = self._conn.execute("SELECT * FROM assignments").fetchall()
+        return {r["id"]: self._row_to_assignment(r) for r in rows}
+
+    def _get_submission(self, key: str) -> AssignmentSubmission | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT * FROM assignment_submissions WHERE id=?", (key,)
+            ).fetchone()
+        return self._row_to_submission(row) if row else None
+
+    def _all_submissions_map(self) -> dict[str, AssignmentSubmission]:
+        with self._lock:
+            rows = self._conn.execute("SELECT * FROM assignment_submissions").fetchall()
+        return {r["id"]: self._row_to_submission(r) for r in rows}
+
+    def _row_to_class(self, row: sqlite3.Row) -> Class:
+        return Class(
+            id=row["id"],
+            instructor_id=row["instructor_id"],
+            name=row["name"],
+            code=row["code"],
+            created_at=row["created_at"],
+        )
+
+    def _row_to_enrollment(self, row: sqlite3.Row) -> ClassEnrollment:
+        return ClassEnrollment(
+            id=row["id"],
+            class_id=row["class_id"],
+            student_id=row["student_id"],
+            joined_at=row["joined_at"],
+        )
+
+    def _row_to_assignment(self, row: sqlite3.Row) -> Assignment:
+        return Assignment(
+            id=row["id"],
+            class_id=row["class_id"],
+            kind=row["kind"],
+            source_id=row["source_id"],
+            title=row["title"],
+            due_at=row["due_at"],
+            created_at=row["created_at"],
+        )
+
+    def _row_to_submission(self, row: sqlite3.Row) -> AssignmentSubmission:
+        return AssignmentSubmission(
+            id=row["id"],
+            assignment_id=row["assignment_id"],
+            student_id=row["student_id"],
+            attempt_id=row["attempt_id"],
+            submitted_at=row["submitted_at"],
+        )
 
     def close(self) -> None:
         with self._lock:

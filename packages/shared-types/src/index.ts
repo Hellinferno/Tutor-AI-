@@ -253,3 +253,40 @@ export interface MetricsSnapshot {
   solve_latency_ms: { p50: number; p90: number; p99: number };
   notion_export_success_rate: number;
 }
+
+// ── Phase 8: classrooms, assignments, class analytics ──
+
+export type AssignmentKind = "quiz" | "paper";
+
+export interface Class {
+  id: string;
+  instructor_id: string;
+  name: string;
+  code: string;
+  created_at: string;
+}
+
+export interface ClassEnrollment {
+  id: string;
+  class_id: string;
+  student_id: string;
+  joined_at: string;
+}
+
+export interface Assignment {
+  id: string;
+  class_id: string;
+  kind: AssignmentKind;
+  source_id: string;
+  title: string;
+  due_at: string | null;
+  created_at: string;
+}
+
+export interface AssignmentSubmission {
+  id: string;
+  assignment_id: string;
+  student_id: string;
+  attempt_id: string;
+  submitted_at: string;
+}

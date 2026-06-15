@@ -12,7 +12,7 @@ The project's quality gate: what runs, what it proves, and the Phase 1–7 accep
 
 | Command | What it checks | Current result |
 |---|---|---|
-| `python -m unittest discover tests` | 151 unit/integration tests | ✅ 151 passed |
+| `python -m unittest discover tests` | 171 unit/integration tests | ✅ 171 passed |
 | `python packages/eval/run_eval.py` | solver verification gate | ✅ 15 cases, `false_verified_rate=0` |
 | `python -m compileall packages services` | every module byte‑compiles (per [Instructions/12](../Instructions/12-testing-strategy.md)) | ✅ clean |
 | `cd apps/web && npm run build` | web compiles + type‑checks + prerenders | ✅ green (interactive app) |
@@ -31,7 +31,7 @@ push — see [.circleci/config.yml](../.circleci/config.yml).
 
 ---
 
-## The test suite (151 tests)
+## The test suite (171 tests)
 
 ### `tests/test_phase1_core.py` — 12 tests
 - **Chunking**: offsets are stable (a chunk's `[start:end]` slice reproduces its text).
@@ -296,4 +296,32 @@ Phase 7 extends the Phase 6 ownership model into multi-user collaboration.
 ➡️ **The Phase 7 gate passes.** Sharing/admin routes require a logged-in user (bearer token); the
 single-user demo experience is unchanged when auth is off. Remaining later work is unchanged: native
 mobile, horizontal-scaling infra, OAuth/SSO, and reset-email delivery —
+see [11-current-status.md](11-current-status.md).
+
+---
+
+## Phase 8 acceptance gate (classrooms, assignments & class analytics)
+
+Phase 8 turns the dormant `instructor` role from Phase 7 into a real teaching surface: classes,
+join codes, assignments, submissions, and per-class analytics.
+
+| Gate criterion | Status |
+|---|---|
+| Only instructors (or admins) can create classes | ✅ (`create_class` raises `PermissionError` otherwise) |
+| Admin can mint instructors | ✅ (`POST /v1/admin/users/{id}/role` → `403` for non‑admins, `400` for bad role) |
+| Join codes are unambiguous & unique | ✅ (6‑char alphabet without `O/0/I/1`; retried on collision) |
+| Enrollment is idempotent | ✅ (re‑enrolling with the same code returns the existing row) |
+| Instructors cannot enroll in their own class | ✅ (`ValueError`) |
+| Roster visible only to the class instructor (or admin) | ✅ (student/stranger → `403`) |
+| Assignment kind constrained | ✅ (`quiz`/`paper`; the source must live in the instructor's own notebook) |
+| Submissions go through the standard eval engine | ✅ (creates an `Attempt`, links via `AssignmentSubmission`) |
+| Non‑enrolled cannot submit | ✅ (`PermissionError`) |
+| Class analytics reports completion + avg + top weak topics | ✅ (per‑assignment + overall) |
+| Persistence | ✅ (classes, enrollments, assignments, submissions survive SQLite reopen) |
+| Deletion cascades | ✅ (instructor delete drops classes/assignments/submissions; student delete drops only their enrollment + submissions) |
+| Tests pass | ✅ 20 Phase 8 tests covering creation, enrollment, assignments, submissions, analytics, persistence |
+
+➡️ **The Phase 8 gate passes.** Classroom/admin role routes require a logged-in user; the
+single-user demo experience (no auth, no classes) is unchanged. Remaining later work is unchanged:
+native mobile, horizontal-scaling infra, OAuth/SSO, and reset-email delivery —
 see [11-current-status.md](11-current-status.md).

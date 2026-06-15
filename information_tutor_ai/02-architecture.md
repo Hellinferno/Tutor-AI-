@@ -127,6 +127,15 @@ together:
   (`viewer`/`editor`); `authorize_notebook(require_edit=…)` now allows the owner **or** a shared user,
   so every notebook‑scoped route honors shares. Users carry a `role` (`student`/`instructor`/`admin`);
   admin is granted via `STUDYLAB_ADMIN_EMAILS` and gates `/v1/admin/*`.
+- **Classrooms** *(Phase 8)* — [ClassroomEngine](../packages/studylab_core/studylab_core/classrooms.py)
+  layers on top of Phase 5–7. Instructors (role `instructor` or `admin`) create classes with a 6‑char
+  unambiguous join code; students enroll via the code; instructors assign a notebook quiz/paper to a
+  class with an optional due date; students submit through the standard `EvalEngine` and the resulting
+  `Attempt` is linked back via `AssignmentSubmission`. The engine also derives per‑class analytics
+  (completion rate, average score, top weak topics aggregated from per‑attempt eval reports). An
+  admin‑only `POST /v1/admin/users/{id}/role` route promotes users to `instructor` (the env list only
+  mints admins). Cascades: deleting an instructor drops their classes/assignments/submissions;
+  deleting a student drops their enrollment + submission rows but keeps the class.
 - **NotionExporter** ([notion.py](../packages/studylab_core/studylab_core/notion.py)) — real
   Notion API call + a mock mode for local demos.
 - **Store** — [InMemoryStudyLabStore](../packages/studylab_core/studylab_core/store.py) or
@@ -248,6 +257,7 @@ together:
 | Observability (Phase 5) | in‑process counters at `/metrics` | Export to Prometheus/OTel in production. |
 | Hardening (Phase 6) | CORS, sliding-window rate limit, input caps, per‑user ownership | `STUDYLAB_CORS_ORIGINS` / `STUDYLAB_RATE_LIMIT` / `STUDYLAB_MAX_SOURCE_CHARS`; rag binds loopback. |
 | Collaboration (Phase 7) | notebook sharing (viewer/editor) + roles (student/instructor/admin) | Share-aware `authorize_notebook`; admin via `STUDYLAB_ADMIN_EMAILS`. |
+| Classrooms (Phase 8) | instructor‑owned classes (join code), assignments (quiz/paper), submissions, per‑class analytics | Admin promotes via `POST /v1/admin/users/{id}/role`; class roster/analytics gated to the owning instructor. |
 | Monorepo | pnpm workspaces + Turborepo | [pnpm-workspace.yaml](../pnpm-workspace.yaml), [turbo.json](../turbo.json). |
 | CI | CircleCI | [.circleci/config.yml](../.circleci/config.yml). |
 

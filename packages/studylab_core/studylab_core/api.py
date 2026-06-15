@@ -6,10 +6,21 @@ from typing import Any
 from .analytics import AnalyticsEngine
 from .artifacts import ArtifactGenerator
 from .auth import AuthEngine
+from .classrooms import ClassroomEngine
 from .connectors import SourceConnectorEngine
 from .eval import EvalEngine
 from .metrics import MetricsCollector
-from .models import ArtifactType, AttemptSourceType, ConnectorType, MeteredAction, NotebookShare, PlanTier, Session
+from .models import (
+    ArtifactType,
+    AssignmentKind,
+    AttemptSourceType,
+    ConnectorType,
+    MeteredAction,
+    NotebookShare,
+    PlanTier,
+    RoleType,
+    Session,
+)
 from .notion import NotionExporter
 from .ocr import extract_text_from_image_payload
 from .paper import PaperEngine
@@ -50,6 +61,8 @@ class StudyLabAPI:
         # Phase 5 engines (production readiness: auth + observability)
         self.auth = AuthEngine(self.store)
         self.metrics = MetricsCollector()
+        # Phase 8 engine (classrooms, assignments, class analytics)
+        self.classrooms = ClassroomEngine(self.store, self.eval)
 
     def create_notebook(self, title: str, user_id: str = "demo-user") -> dict[str, Any]:
         return self.store.to_plain(self.rag.create_notebook(title=title, user_id=user_id))
@@ -514,6 +527,70 @@ class StudyLabAPI:
     def list_users(self, requester_id: str) -> dict[str, Any]:
         self.require_admin(requester_id)
         return {"users": [self.auth.public_user(u) for u in self.store.all_users()]}
+
+    def set_user_role(self, requester_id: str, target_user_id: str, role: RoleType) -> dict[str, Any]:
+        """Admin-only: promote or demote a user (used to mint instructors for Phase 8)."""
+        self.require_admin(requester_id)
+        if role not in ("student", "instructor", "admin"):
+            raise ValueError("role must be 'student', 'instructor', or 'admin'")
+        user = self.store.require_user(target_user_id)
+        user.role = role
+        self.store.save_user(user)
+        return self.auth.public_user(user)
+
+    # ── Phase 8: Classrooms, assignments, class analytics ─────────────────
+
+    def create_class(self, instructor_id: str, name: str) -> dict[str, Any]:
+        return self.store.to_plain(self.classrooms.create_class(instructor_id, name))
+
+    def list_my_classes(self, user_id: str) -> dict[str, Any]:
+        return self.classrooms.list_my_classes(user_id)
+
+    def enroll_in_class(self, student_id: str, code: str) -> dict[str, Any]:
+        return self.classrooms.enroll(student_id, code)
+
+    def list_class_roster(self, instructor_id: str, class_id: str) -> dict[str, Any]:
+        return self.classrooms.list_roster(instructor_id, class_id)
+
+    def create_assignment(
+        self,
+        instructor_id: str,
+        class_id: str,
+        kind: AssignmentKind,
+        source_id: str,
+        title: str,
+        due_at: str | None = None,
+    ) -> dict[str, Any]:
+        return self.store.to_plain(
+            self.classrooms.create_assignment(
+                instructor_id=instructor_id,
+                class_id=class_id,
+                kind=kind,
+                source_id=source_id,
+                title=title,
+                due_at=due_at,
+            )
+        )
+
+    def list_class_assignments(self, user_id: str, class_id: str) -> dict[str, Any]:
+        return self.classrooms.list_assignments_for_class(user_id, class_id)
+
+    def list_assignments_for_student(self, student_id: str) -> dict[str, Any]:
+        return self.classrooms.list_assignments_for_student(student_id)
+
+    def submit_assignment(
+        self,
+        student_id: str,
+        assignment_id: str,
+        answers: list[dict],
+    ) -> dict[str, Any]:
+        return self.classrooms.submit_assignment(student_id, assignment_id, answers)
+
+    def list_assignment_submissions(self, instructor_id: str, assignment_id: str) -> dict[str, Any]:
+        return self.classrooms.list_submissions(instructor_id, assignment_id)
+
+    def class_analytics(self, instructor_id: str, class_id: str) -> dict[str, Any]:
+        return self.classrooms.class_analytics(instructor_id, class_id)
 
     # ── Phase 5: Observability ────────────────────────────────────────────
 

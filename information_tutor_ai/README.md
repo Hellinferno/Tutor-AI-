@@ -53,14 +53,19 @@ and voice I/O, imports more source types (website / YouTube / audio / Google Doc
 with a multi‑agent team, runs Free/Scholar/Pro plans with usage metering, and ships
 production‑readiness — accounts with full self‑service (sign‑up, login, change/reset password,
 delete account), per‑user privacy (IDOR‑safe), CORS + rate limiting + input caps, a `/metrics` health
-endpoint, one‑click sample onboarding, **and collaboration: notebook sharing (viewer/editor), a
-"shared with me" view, and student/instructor/admin roles**. This repository contains the
-**Phase 0 → Phase 7 vertical slice**: a working, fully‑tested core (151 tests) with an **interactive,
-responsive Next.js web app wired to the gateway**, all runnable without any external cloud services.
+endpoint, one‑click sample onboarding, collaboration via notebook sharing (viewer/editor) with a
+"shared with me" view, student/instructor/admin roles, **and classrooms: instructors create classes,
+students join via a short code, instructors assign quizzes/papers with due dates, submissions roll up
+into a class‑wide analytics view (completion rate, average score, top weak topics)**. This repository
+contains the **Phase 0 → Phase 8 vertical slice**: a working, fully‑tested core (171 tests) with an
+**interactive, responsive Next.js web app wired to the gateway**, all runnable without any external
+cloud services.
 
-> 🟢 **Non‑developer note:** "Phase 0 through Phase 7" means *the foundation, grounded Q&A +
+> 🟢 **Non‑developer note:** "Phase 0 through Phase 8" means *the foundation, grounded Q&A +
 > verified solving, the teaching/quiz/paper layer, the memory/revision/analytics/voice layer, the
 > connectors/multi‑agent/pricing layer, the auth/observability layer, the production‑hardening +
-> user‑readiness layer, and the collaboration layer (notebook sharing + roles)*. The website is a
-> working, responsive app (not a mockup). Remaining later work: native mobile, horizontal‑scaling
-> infra, social login, and reset‑email delivery. See [11-current-status.md](11-current-status.md).
+> user‑readiness layer, the collaboration layer (notebook sharing + roles), and the classroom layer
+> (instructor‑owned classes, join codes, assignments with due dates, submissions, class analytics)*.
+> The website is a working, responsive app (not a mockup). Remaining later work: native mobile,
+> horizontal‑scaling infra, social login, and reset‑email delivery. See
+> [11-current-status.md](11-current-status.md).

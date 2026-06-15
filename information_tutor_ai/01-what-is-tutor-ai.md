@@ -133,7 +133,7 @@ The latest layer (Phase 6) is about being genuinely usable and safe in the real 
 > limits, and rate limiting for production.
 
 ### 11. You can study together
-The newest layer (Phase 7) makes StudyLab multi-user:
+Phase 7 makes StudyLab multi-user:
 - **Share a notebook** with a classmate by email, as a **viewer** (can read, ask questions, and
   generate quizzes/notes) or an **editor** (can also add and change sources).
 - **"Shared with me"** lists every notebook other people have shared with you — open one in a click.
@@ -142,6 +142,21 @@ The newest layer (Phase 7) makes StudyLab multi-user:
 
 > 🟢 **Privacy is preserved:** you can only open a notebook you own or that was explicitly shared with
 > you; a viewer can't modify someone else's sources.
+
+### 12. Instructors can run classes
+The newest layer (Phase 8) turns the *instructor* role into a real teaching surface:
+- **Create a class** as an instructor — you get a short **join code** (like `ABC123`) to share with
+  your students.
+- **Students join** with the code in one click; the instructor sees the **roster**.
+- **Assign a quiz or paper** to the class from your own notebook, optionally with a **due date**.
+- **Students see "My assignments"** across every class they've joined, with due dates.
+- When a student **submits**, Tutor‑AI scores it through the same eval engine that grades practice
+  quizzes — and the instructor sees every submission and a **class‑wide analytics view**:
+  completion rate per assignment, average score, and the topics the class is weakest on.
+- An **admin promotes** ordinary users to instructors when they're ready to teach.
+
+> 🟢 **Why it matters:** students get a single place to see what they owe; instructors get an
+> auto‑graded class with weak‑topic insights without leaving Tutor‑AI for a spreadsheet.
 
 ---
 
@@ -158,16 +173,17 @@ The newest layer (Phase 7) makes StudyLab multi-user:
 
 ## What's built right now (and what isn't)
 
-✅ **Built and working today** (Phase 0 → Phase 6): notebooks, source upload, source guides, grounded
+✅ **Built and working today** (Phase 0 → Phase 8): notebooks, source upload, source guides, grounded
 answers with citations, honest refusal, verified math/finance/code solving, study artifacts, Notion
 export, durable saving of your data, the teaching whiteboard, quizzes, question papers, verified
 answer keys, auto‑graded reports, spaced‑repetition revision, a per‑topic mastery model, progress
 analytics, voice input/output, the website / YouTube / audio / Google Docs connectors, multi‑agent
 teaching, Free/Scholar/Pro plans with usage metering, real accounts (login) with per‑user privacy and
 a system‑health dashboard, full account self‑service (change/reset password, delete account),
-one‑click sample onboarding, production safety rails (rate limits, input caps, CORS), **plus
-notebook sharing (viewer/editor), a "shared with me" view, and student/instructor/admin roles** — all
-driven from a working, responsive interactive website.
+one‑click sample onboarding, production safety rails (rate limits, input caps, CORS), notebook
+sharing (viewer/editor) with a "shared with me" view, student/instructor/admin roles, **plus
+classrooms with join codes, assignments and due dates, submission tracking, and class‑wide
+analytics** — all driven from a working, responsive interactive website.
 
 🚧 **Planned for later**: a **native mobile app** (the website is already responsive),
 **horizontal‑scaling** infrastructure, **social login (OAuth/SSO)**, and wiring an **email provider**

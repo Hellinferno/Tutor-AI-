@@ -1,6 +1,7 @@
 import { AnalyticsPanel } from "../components/analytics-panel";
 import { ArtifactPanel } from "../components/artifact-panel";
 import { AuthPanel } from "../components/auth-panel";
+import { ClassroomsPanel } from "../components/classrooms-panel";
 import { ConnectorsPanel } from "../components/connectors-panel";
 import { MetricsPanel } from "../components/metrics-panel";
 import { MultiAgentPanel } from "../components/multi-agent-panel";
@@ -29,6 +30,7 @@ export default function Page() {
         <nav className="nav">
           <a href="#account">Account</a>
           <a href="#share">Sharing</a>
+          <a href="#classes">Classrooms</a>
           <a href="#sources">Sources</a>
           <a href="#connectors">Connectors</a>
           <a href="#ask">Ask</a>
@@ -51,8 +53,8 @@ export default function Page() {
         <NotebookProvider>
           <header className="topbar">
             <div>
-              <p className="eyebrow">Phase 1–5</p>
-              <h2>NotebookLM-inspired RAG with teaching, quizzes, papers, revision, connectors, multi-agent tutoring, accounts &amp; observability</h2>
+              <p className="eyebrow">Phase 1–8</p>
+              <h2>NotebookLM-inspired RAG with teaching, quizzes, papers, revision, connectors, multi-agent tutoring, accounts, observability, sharing &amp; classrooms</h2>
             </div>
             <NotebookBar />
           </header>
@@ -60,6 +62,7 @@ export default function Page() {
           <div className="grid">
             <AuthPanel />
             <SharePanel />
+            <ClassroomsPanel />
             <SourcePanel />
             <ConnectorsPanel />
             <NotebookChat />
