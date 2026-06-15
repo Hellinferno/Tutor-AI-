@@ -18,10 +18,12 @@ from .models import (
     Citation,
     Class,
     ClassEnrollment,
+    Comment,
     EvalReport,
     MultiAgentTeachingSession,
     Notebook,
     NotebookShare,
+    Notification,
     QuestionPaper,
     Quiz,
     QuizQuestion,
@@ -34,6 +36,7 @@ from .models import (
     SourceImport,
     StudentProfile,
     Subscription,
+    SubmissionFeedback,
     TopicMastery,
     UsageRecord,
     User,
@@ -281,6 +284,33 @@ CREATE INDEX IF NOT EXISTS idx_enroll_student ON class_enrollments (student_id);
 CREATE INDEX IF NOT EXISTS idx_assignments_class ON assignments (class_id);
 CREATE INDEX IF NOT EXISTS idx_submissions_assignment ON assignment_submissions (assignment_id);
 CREATE INDEX IF NOT EXISTS idx_submissions_student ON assignment_submissions (student_id);
+CREATE TABLE IF NOT EXISTS comments (
+  id TEXT PRIMARY KEY,
+  notebook_id TEXT NOT NULL,
+  author_id TEXT NOT NULL,
+  body TEXT NOT NULL,
+  parent_id TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS submission_feedback (
+  id TEXT PRIMARY KEY,
+  submission_id TEXT NOT NULL,
+  instructor_id TEXT NOT NULL,
+  feedback TEXT NOT NULL,
+  override_score REAL,
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS notifications (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  payload TEXT NOT NULL DEFAULT '{}',
+  read_at TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_comments_notebook ON comments (notebook_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_feedback_submission ON submission_feedback (submission_id);
+CREATE INDEX IF NOT EXISTS idx_notifs_user ON notifications (user_id, created_at);
 """
 
 
@@ -386,6 +416,11 @@ class SqliteStudyLabStore:
         self.enrollments = _TableView(self._all_enrollments_map, self._get_enrollment)
         self.assignments = _TableView(self._all_assignments_map, self._get_assignment)
         self.submissions = _TableView(self._all_submissions_map, self._get_submission)
+
+        # Phase 9 table views (discussions, feedback, notifications)
+        self.comments = _TableView(self._all_comments_map, self._get_comment)
+        self.submission_feedback = _TableView(self._all_feedback_map, self._get_feedback)
+        self.notifications = _TableView(self._all_notifications_map, self._get_notification)
 
     def _ensure_compat_columns(self) -> None:
         columns = {row["name"] for row in self._conn.execute("PRAGMA table_info(answer_keys)").fetchall()}
@@ -577,6 +612,21 @@ class SqliteStudyLabStore:
             # Enrollments and submissions where the user was the student.
             self._conn.execute("DELETE FROM assignment_submissions WHERE student_id=?", (user_id,))
             self._conn.execute("DELETE FROM class_enrollments WHERE student_id=?", (user_id,))
+            # Phase 9: comments by the user OR on notebooks the user owned (notebooks already removed);
+            # feedback authored by the user (instructor) or on submissions that were just deleted;
+            # notifications belonging to the user.
+            self._conn.execute("DELETE FROM comments WHERE author_id=?", (user_id,))
+            if notebook_ids:
+                self._conn.execute(
+                    f"DELETE FROM comments WHERE notebook_id IN ({placeholders})", notebook_ids
+                )
+            self._conn.execute("DELETE FROM submission_feedback WHERE instructor_id=?", (user_id,))
+            # Drop feedback on submissions that no longer exist.
+            self._conn.execute(
+                "DELETE FROM submission_feedback WHERE submission_id NOT IN "
+                "(SELECT id FROM assignment_submissions)"
+            )
+            self._conn.execute("DELETE FROM notifications WHERE user_id=?", (user_id,))
             self._conn.execute("DELETE FROM users WHERE id=?", (user_id,))
             self._conn.commit()
 
@@ -1828,6 +1878,180 @@ class SqliteStudyLabStore:
             student_id=row["student_id"],
             attempt_id=row["attempt_id"],
             submitted_at=row["submitted_at"],
+        )
+
+    def require_submission(self, submission_id: str) -> AssignmentSubmission:
+        sub = self._get_submission(submission_id)
+        if sub is None:
+            raise KeyError(f"Submission not found: {submission_id}")
+        return sub
+
+    # ── Phase 9: Discussions, feedback, notifications ─────────────────────
+
+    def add_comment(self, comment: Comment) -> Comment:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO comments (id, notebook_id, author_id, body, parent_id, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (comment.id, comment.notebook_id, comment.author_id, comment.body, comment.parent_id, comment.created_at),
+            )
+            self._conn.commit()
+        return comment
+
+    def require_comment(self, comment_id: str) -> Comment:
+        c = self._get_comment(comment_id)
+        if c is None:
+            raise KeyError(f"Comment not found: {comment_id}")
+        return c
+
+    def comments_for_notebook(self, notebook_id: str) -> list[Comment]:
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT * FROM comments WHERE notebook_id=? ORDER BY created_at", (notebook_id,)
+            ).fetchall()
+        return [self._row_to_comment(r) for r in rows]
+
+    def add_submission_feedback(self, feedback: SubmissionFeedback) -> SubmissionFeedback:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO submission_feedback (id, submission_id, instructor_id, feedback, override_score, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    feedback.id,
+                    feedback.submission_id,
+                    feedback.instructor_id,
+                    feedback.feedback,
+                    feedback.override_score,
+                    feedback.created_at,
+                ),
+            )
+            self._conn.commit()
+        return feedback
+
+    def feedback_for_submission(self, submission_id: str) -> SubmissionFeedback | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT * FROM submission_feedback WHERE submission_id=? ORDER BY created_at DESC LIMIT 1",
+                (submission_id,),
+            ).fetchone()
+        return self._row_to_feedback(row) if row else None
+
+    def add_notification(self, notification: Notification) -> Notification:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO notifications (id, user_id, kind, payload, read_at, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    notification.id,
+                    notification.user_id,
+                    notification.kind,
+                    json.dumps(notification.payload),
+                    notification.read_at,
+                    notification.created_at,
+                ),
+            )
+            self._conn.commit()
+        return notification
+
+    def require_notification(self, notification_id: str) -> Notification:
+        n = self._get_notification(notification_id)
+        if n is None:
+            raise KeyError(f"Notification not found: {notification_id}")
+        return n
+
+    def notifications_for_user(self, user_id: str, unread_only: bool = False) -> list[Notification]:
+        with self._lock:
+            if unread_only:
+                rows = self._conn.execute(
+                    "SELECT * FROM notifications WHERE user_id=? AND read_at IS NULL ORDER BY created_at DESC",
+                    (user_id,),
+                ).fetchall()
+            else:
+                rows = self._conn.execute(
+                    "SELECT * FROM notifications WHERE user_id=? ORDER BY created_at DESC",
+                    (user_id,),
+                ).fetchall()
+        return [self._row_to_notification(r) for r in rows]
+
+    def mark_notifications_read(self, user_id: str, ids: list[str] | None = None, when: str | None = None) -> int:
+        from .models import utc_now as _utc_now
+        ts = when or _utc_now()
+        with self._lock:
+            if ids is None:
+                cur = self._conn.execute(
+                    "UPDATE notifications SET read_at=? WHERE user_id=? AND read_at IS NULL",
+                    (ts, user_id),
+                )
+            else:
+                placeholders = ",".join("?" for _ in ids)
+                cur = self._conn.execute(
+                    f"UPDATE notifications SET read_at=? WHERE user_id=? AND read_at IS NULL "
+                    f"AND id IN ({placeholders})",
+                    (ts, user_id, *ids),
+                )
+            self._conn.commit()
+            return cur.rowcount
+
+    # ── Phase 9 row mappers + table views ────────────────────────────────
+
+    def _get_comment(self, key: str) -> Comment | None:
+        with self._lock:
+            row = self._conn.execute("SELECT * FROM comments WHERE id=?", (key,)).fetchone()
+        return self._row_to_comment(row) if row else None
+
+    def _all_comments_map(self) -> dict[str, Comment]:
+        with self._lock:
+            rows = self._conn.execute("SELECT * FROM comments").fetchall()
+        return {r["id"]: self._row_to_comment(r) for r in rows}
+
+    def _get_feedback(self, key: str) -> SubmissionFeedback | None:
+        with self._lock:
+            row = self._conn.execute("SELECT * FROM submission_feedback WHERE id=?", (key,)).fetchone()
+        return self._row_to_feedback(row) if row else None
+
+    def _all_feedback_map(self) -> dict[str, SubmissionFeedback]:
+        with self._lock:
+            rows = self._conn.execute("SELECT * FROM submission_feedback").fetchall()
+        return {r["id"]: self._row_to_feedback(r) for r in rows}
+
+    def _get_notification(self, key: str) -> Notification | None:
+        with self._lock:
+            row = self._conn.execute("SELECT * FROM notifications WHERE id=?", (key,)).fetchone()
+        return self._row_to_notification(row) if row else None
+
+    def _all_notifications_map(self) -> dict[str, Notification]:
+        with self._lock:
+            rows = self._conn.execute("SELECT * FROM notifications").fetchall()
+        return {r["id"]: self._row_to_notification(r) for r in rows}
+
+    def _row_to_comment(self, row: sqlite3.Row) -> Comment:
+        return Comment(
+            id=row["id"],
+            notebook_id=row["notebook_id"],
+            author_id=row["author_id"],
+            body=row["body"],
+            parent_id=row["parent_id"],
+            created_at=row["created_at"],
+        )
+
+    def _row_to_feedback(self, row: sqlite3.Row) -> SubmissionFeedback:
+        return SubmissionFeedback(
+            id=row["id"],
+            submission_id=row["submission_id"],
+            instructor_id=row["instructor_id"],
+            feedback=row["feedback"],
+            override_score=row["override_score"],
+            created_at=row["created_at"],
+        )
+
+    def _row_to_notification(self, row: sqlite3.Row) -> Notification:
+        return Notification(
+            id=row["id"],
+            user_id=row["user_id"],
+            kind=row["kind"],
+            payload=json.loads(row["payload"]),
+            read_at=row["read_at"],
+            created_at=row["created_at"],
         )
 
     def close(self) -> None:

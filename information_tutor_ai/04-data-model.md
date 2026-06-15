@@ -48,6 +48,10 @@ users (instructor) ──< classes                                 (Phase 8)
 classes ──< class_enrollments >── users (student)              (Phase 8)
 classes ──< assignments → quiz | paper (source_id + kind)      (Phase 8)
 assignments ──< assignment_submissions ─1 attempts             (Phase 8)
+
+notebooks ──< comments >── users (author)                       (Phase 9)
+assignment_submissions ──< submission_feedback >── users (instr.) (Phase 9)
+users ──< notifications                                          (Phase 9)
 ```
 `└─<` = one‑to‑many, `└─1` = one‑to‑one. (`users` and `notebooks` may be null on some rows in the
 current local flow, which defaults the owner to `demo-user`.)
@@ -249,6 +253,38 @@ attempt and the submission row.
 
 ---
 
+## Phase 9 tables (discussions, instructor feedback & notifications)
+
+Added in [009_phase9_social.sql](../packages/db/migrations/009_phase9_social.sql) (Postgres) and
+mirrored in the SQLite store.
+
+### `comments`
+A threaded discussion comment on a notebook: `id`, `notebook_id` → `notebooks(id)`, `author_id`
+→ `users(id)`, `body` (≤ 8000 chars, non-empty), `parent_id` → `comments(id)` (nullable),
+`created_at`. Visible to anyone with notebook access (owner or any share). Cascades with the
+notebook and the author.
+
+### `submission_feedback`
+Instructor feedback on a Phase 8 `AssignmentSubmission`: `id`, `submission_id` →
+`assignment_submissions(id)`, `instructor_id` → `users(id)`, `feedback` (≤ 8000 chars),
+`override_score` (nullable, must be in `[0, max_score]`), `created_at`. When `override_score` is
+set it **replaces** the auto-graded total in `list_assignment_submissions` and `class_analytics`.
+Only the class's instructor (or admin) can add feedback; only that instructor, the student who
+submitted, or admin can read it. Cascades with the submission and the instructor.
+
+### `notifications`
+A best-effort inbox row for a user: `id`, `user_id` → `users(id)`, `kind` (one of the
+`NotificationKind` literals), `payload` (JSON dict with event context), `read_at` (nullable),
+`created_at`. Written by the share / classroom / comment / feedback flows; never blocks the
+originating action. Cascades with the user.
+
+> **Notification kinds.** `notebook_shared` (recipient learns of a new share),
+> `class_enrolled` (instructor sees a new student), `assignment_created` (every enrolled student),
+> `submission_received` (instructor), `submission_graded` (student), `comment_posted` (every other
+> user with notebook access).
+
+---
+
 ## Enumerated types
 
 | Type | Values |
@@ -270,6 +306,7 @@ attempt and the submission row.
 | `role` (Phase 7, user) | `student`, `instructor`, `admin` |
 | `share.role` (Phase 7) | `viewer`, `editor` |
 | `assignment.kind` (Phase 8) | `quiz`, `paper` |
+| `notification.kind` (Phase 9) | `notebook_shared`, `class_enrolled`, `assignment_created`, `submission_received`, `submission_graded`, `comment_posted` |
 
 ---
 

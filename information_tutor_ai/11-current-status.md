@@ -9,7 +9,7 @@ is **not built yet**. Keep this document accurate as the source of truth on proj
 
 ---
 
-## ✅ Done, working, and tested (Phase 0 → Phase 8)
+## ✅ Done, working, and tested (Phase 0 → Phase 9)
 
 | Area | State |
 |---|---|
@@ -17,7 +17,7 @@ is **not built yet**. Keep this document accurate as the source of truth on proj
 | Local env + `.env.example` | ✅ |
 | Docker Compose (postgres, redis, qdrant, gateway, rag, solver, shared volume) | ✅ |
 | Dockerfiles for gateway, rag, solver | ✅ |
-| DB migration (full Phase 1–8 schema) | ✅ written |
+| DB migration (full Phase 1–9 schema) | ✅ written |
 | Gateway + rag + solver services (runnable, `/health` + `/ready` + functional routes) | ✅ |
 | Shared API contracts (OpenAPI + TypeScript types, Phase 0–7) | ✅ |
 | Notebook creation, source upload, source guides | ✅ |
@@ -57,10 +57,13 @@ is **not built yet**. Keep this document accurate as the source of truth on proj
 | **Phase 8 — Submissions** (student submits → eval pipeline scores → submission linked to assignment) | ✅ |
 | **Phase 8 — Class analytics** (per‑assignment completion rate + avg %; class overall avg; top weak topics) | ✅ |
 | **Phase 8 — Admin role management** (`POST /v1/admin/users/{id}/role`; the way to mint instructors) | ✅ |
-| **Interactive web app** (Next 15) — all 18 panels wired to the gateway, responsive/mobile, no static mockups | ✅ |
-| Test suite (171 tests) | ✅ |
+| **Phase 9 — Discussion comments** (threaded notebook comments; visible to owner + shared users) | ✅ |
+| **Phase 9 — Submission feedback** (instructor feedback + optional grade override; final grade beats auto) | ✅ |
+| **Phase 9 — Notifications** (inbox for share/enroll/assign/submit/grade/comment events; read + read-all) | ✅ |
+| **Interactive web app** (Next 15) — all 20 panels wired to the gateway, responsive/mobile, no static mockups | ✅ |
+| Test suite (190 tests) | ✅ |
 
-**The Phase 1–8 acceptance gates pass.** See [10-testing-and-eval.md](10-testing-and-eval.md).
+**The Phase 1–9 acceptance gates pass.** See [10-testing-and-eval.md](10-testing-and-eval.md).
 
 ---
 
@@ -94,13 +97,15 @@ integration needs an external service or credentials (and can't be runtime‑ver
 ## ⚪ Not built yet (beyond the planned phases)
 
 The specs ([Instructions/10-development-phases.md](../Instructions/10-development-phases.md)) define
-Phases 0–4; **Phases 5–8 were added on top** to ship to real users: Phase 5 (auth, authorization,
+Phases 0–4; **Phases 5–9 were added on top** to ship to real users: Phase 5 (auth, authorization,
 quota enforcement, observability), Phase 6 (production hardening + user readiness: CORS, rate
 limiting, input caps, account self‑service, onboarding), Phase 7 (collaboration — notebook
-sharing with viewer/editor roles, "shared with me", and student/instructor/admin roles), and
+sharing with viewer/editor roles, "shared with me", and student/instructor/admin roles),
 Phase 8 (classrooms — instructor‑owned classes, 6‑char join codes, assignments with due dates,
-submission tracking, and per‑class analytics; plus admin role management to mint instructors).
-What still remains as a later concern:
+submission tracking, and per‑class analytics; plus admin role management to mint instructors),
+and Phase 9 (the social layer — threaded discussion comments on notebooks, instructor feedback
+with optional grade override on submissions, and a notifications inbox emitted from every
+multi‑user event). What still remains as a later concern:
 
 - **Native mobile apps** (iOS/Android) — the web app is fully **responsive** (works on phones), but
   there is no native shell yet.
@@ -122,18 +127,22 @@ What still remains as a later concern:
 
 ## One‑line summary
 
-> **Phase 0 → Phase 8 are complete, tested (171 tests), and self‑contained, and the web app is fully
-> wired to the gateway (18 responsive panels, no static mockups).** Phase 5 added first‑party auth
+> **Phase 0 → Phase 9 are complete, tested (190 tests), and self‑contained, and the web app is fully
+> wired to the gateway (20 responsive panels, no static mockups).** Phase 5 added first‑party auth
 > (PBKDF2 + JWT), per‑user authorization, env‑gated quota enforcement, and a `/metrics` endpoint;
 > Phase 6 added production hardening (CORS, rate limiting, input‑size caps, `/ready`, IDOR‑safe
 > ownership checks, fail‑fast JWT secret) and user readiness (account self‑service + sample
 > onboarding); Phase 7 added collaboration — notebook **sharing** (viewer/editor) with a
 > "shared with me" view, share‑aware authorization, and **roles** (student/instructor/admin) with
-> admin‑only routes; **Phase 8 added classrooms** — instructor‑owned classes with short join codes,
+> admin‑only routes; Phase 8 added classrooms — instructor‑owned classes with short join codes,
 > roster, assignments (quiz/paper with due dates), submission tracking through the eval pipeline,
 > per‑class analytics (completion rate, average score, top weak topics), and an admin
-> `POST /admin/users/{id}/role` route to mint instructors. Postgres, Qdrant, real embeddings/OCR,
-> Redis, the real voice provider, connector fetch‑workers, Stripe billing, a production metrics
-> backend, and reset‑email delivery are intentionally left as env‑gated adapters; auth / quota /
-> rate‑limit *enforcement* is built but off by default. Native mobile, horizontal‑scaling infra, and
-> OAuth/SSO remain later concerns.
+> `POST /admin/users/{id}/role` route to mint instructors; **Phase 9 added the social layer** —
+> threaded **discussion comments** on notebooks (owner + shared users can read/post), **instructor
+> feedback** on submissions with an optional grade override (the final score listed and rolled into
+> analytics beats the auto score), and a **notifications inbox** fed by every multi‑user event
+> (share, enroll, assign, submit, grade, comment). Postgres, Qdrant, real embeddings/OCR, Redis,
+> the real voice provider, connector fetch‑workers, Stripe billing, a production metrics backend,
+> and reset‑email delivery are intentionally left as env‑gated adapters; auth / quota / rate‑limit
+> *enforcement* is built but off by default. Native mobile, horizontal‑scaling infra, and OAuth/SSO
+> remain later concerns.

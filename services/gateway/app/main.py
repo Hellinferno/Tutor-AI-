@@ -155,6 +155,17 @@ class StudyLabHandler(BaseHTTPRequestHandler):
         if len(parts) == 4 and parts[:2] == ["v1", "assignments"] and parts[3] == "submissions":
             self._handle(lambda: api.list_assignment_submissions(self._session_user(), parts[2]))
             return
+        # ── Phase 9 GET routes ──
+        if len(parts) == 4 and parts[:2] == ["v1", "notebooks"] and parts[3] == "comments":
+            self._handle(lambda: api.list_notebook_comments(self._session_user(), parts[2]))
+            return
+        if len(parts) == 4 and parts[:2] == ["v1", "submissions"] and parts[3] == "feedback":
+            self._handle(lambda: api.get_submission_feedback(self._session_user(), parts[2]))
+            return
+        if parts == ["v1", "notifications"]:
+            unread = self._get_query_param("unread_only", "false").lower() == "true"
+            self._handle(lambda: api.list_notifications(self._session_user(), unread_only=unread))
+            return
         self._json(404, {"error": {"code": "not_found", "message": f"No route for GET {path}"}})
 
     def do_POST(self) -> None:
@@ -318,6 +329,29 @@ class StudyLabHandler(BaseHTTPRequestHandler):
         # ── Phase 8: Admin user-role management ──
         if len(parts) == 5 and parts[:2] == ["v1", "admin"] and parts[2] == "users" and parts[4] == "role":
             self._handle(lambda: api.set_user_role(self._session_user(), parts[3], role=payload["role"]))
+            return
+        # ── Phase 9: Discussions, instructor feedback, notifications ──
+        if len(parts) == 4 and parts[:2] == ["v1", "notebooks"] and parts[3] == "comments":
+            self._handle(lambda: api.post_notebook_comment(
+                author_id=self._session_user(),
+                notebook_id=parts[2],
+                body=payload["body"],
+                parent_id=payload.get("parent_id"),
+            ))
+            return
+        if len(parts) == 4 and parts[:2] == ["v1", "submissions"] and parts[3] == "feedback":
+            self._handle(lambda: api.add_submission_feedback(
+                instructor_id=self._session_user(),
+                submission_id=parts[2],
+                feedback=payload["feedback"],
+                override_score=payload.get("override_score"),
+            ))
+            return
+        if len(parts) == 4 and parts[:2] == ["v1", "notifications"] and parts[3] == "read":
+            self._handle(lambda: api.mark_notification_read(self._session_user(), parts[2]))
+            return
+        if parts == ["v1", "notifications", "read-all"]:
+            self._handle(lambda: api.mark_all_notifications_read(self._session_user()))
             return
         self._json(404, {"error": {"code": "not_found", "message": f"No route for POST {path}"}})
 

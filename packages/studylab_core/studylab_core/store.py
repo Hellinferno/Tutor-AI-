@@ -12,9 +12,11 @@ from .models import (
     Attempt,
     Class,
     ClassEnrollment,
+    Comment,
     EvalReport,
     Notebook,
     NotebookShare,
+    Notification,
     QuestionPaper,
     Quiz,
     QuizQuestion,
@@ -27,6 +29,7 @@ from .models import (
     SourceImport,
     StudentProfile,
     Subscription,
+    SubmissionFeedback,
     TopicMastery,
     MultiAgentTeachingSession,
     UsageRecord,
@@ -77,6 +80,11 @@ class InMemoryStudyLabStore:
         self.enrollments: dict[str, ClassEnrollment] = {}
         self.assignments: dict[str, Assignment] = {}
         self.submissions: dict[str, AssignmentSubmission] = {}
+
+        # Phase 9 stores (discussions, submission feedback, notifications)
+        self.comments: dict[str, Comment] = {}
+        self.submission_feedback: dict[str, SubmissionFeedback] = {}
+        self.notifications: dict[str, Notification] = {}
 
     def next_id(self, prefix: str) -> str:
         return f"{prefix}_{uuid4().hex[:12]}"
@@ -182,6 +190,65 @@ class InMemoryStudyLabStore:
     def submissions_for_student(self, student_id: str) -> list[AssignmentSubmission]:
         return [s for s in self.submissions.values() if s.student_id == student_id]
 
+    def require_submission(self, submission_id: str) -> AssignmentSubmission:
+        try:
+            return self.submissions[submission_id]
+        except KeyError as exc:
+            raise KeyError(f"Submission not found: {submission_id}") from exc
+
+    # ── Phase 9: Discussions, feedback, notifications ───────────────────
+
+    def add_comment(self, comment: Comment) -> Comment:
+        self.comments[comment.id] = comment
+        return comment
+
+    def require_comment(self, comment_id: str) -> Comment:
+        try:
+            return self.comments[comment_id]
+        except KeyError as exc:
+            raise KeyError(f"Comment not found: {comment_id}") from exc
+
+    def comments_for_notebook(self, notebook_id: str) -> list[Comment]:
+        rows = [c for c in self.comments.values() if c.notebook_id == notebook_id]
+        return sorted(rows, key=lambda c: c.created_at)
+
+    def add_submission_feedback(self, feedback: SubmissionFeedback) -> SubmissionFeedback:
+        self.submission_feedback[feedback.id] = feedback
+        return feedback
+
+    def feedback_for_submission(self, submission_id: str) -> SubmissionFeedback | None:
+        rows = [f for f in self.submission_feedback.values() if f.submission_id == submission_id]
+        return sorted(rows, key=lambda f: f.created_at)[-1] if rows else None
+
+    def add_notification(self, notification: Notification) -> Notification:
+        self.notifications[notification.id] = notification
+        return notification
+
+    def require_notification(self, notification_id: str) -> Notification:
+        try:
+            return self.notifications[notification_id]
+        except KeyError as exc:
+            raise KeyError(f"Notification not found: {notification_id}") from exc
+
+    def notifications_for_user(self, user_id: str, unread_only: bool = False) -> list[Notification]:
+        rows = [n for n in self.notifications.values() if n.user_id == user_id]
+        if unread_only:
+            rows = [n for n in rows if n.read_at is None]
+        return sorted(rows, key=lambda n: n.created_at, reverse=True)
+
+    def mark_notifications_read(self, user_id: str, ids: list[str] | None = None, when: str | None = None) -> int:
+        from .models import utc_now as _utc_now
+        ts = when or _utc_now()
+        n = 0
+        for notif in self.notifications.values():
+            if notif.user_id != user_id or notif.read_at is not None:
+                continue
+            if ids is not None and notif.id not in ids:
+                continue
+            notif.read_at = ts
+            n += 1
+        return n
+
     def delete_user(self, user_id: str) -> None:
         """Delete a user and cascade-remove their owned data (account deletion)."""
         notebook_ids = {nb.id for nb in self.notebooks.values() if nb.user_id == user_id}
@@ -223,10 +290,21 @@ class InMemoryStudyLabStore:
         # Phase 8: classes the user instructs (cascade), classes they're enrolled in (drop enrollment + submissions)
         instructed_class_ids = {c.id for c in self.classes.values() if c.instructor_id == user_id}
         assignment_ids_in_instructed = {a.id for a in self.assignments.values() if a.class_id in instructed_class_ids}
+        # Capture all submissions that will be removed so feedback rows can cascade with them.
+        gone_submission_ids = {
+            s.id for s in self.submissions.values()
+            if s.student_id == user_id or s.assignment_id in assignment_ids_in_instructed
+        }
         _drop(self.submissions, lambda v: v.student_id == user_id or v.assignment_id in assignment_ids_in_instructed)
         _drop(self.assignments, lambda v: v.class_id in instructed_class_ids)
         _drop(self.enrollments, lambda v: v.student_id == user_id or v.class_id in instructed_class_ids)
         _drop(self.classes, lambda v: v.id in instructed_class_ids)
+        # Phase 9: comments authored by the user OR on notebooks they owned (already dropped above);
+        # feedback the user wrote, plus any feedback on submissions that just disappeared; notifications
+        # belonging to the user.
+        _drop(self.comments, lambda v: v.author_id == user_id or v.notebook_id in notebook_ids)
+        _drop(self.submission_feedback, lambda v: v.instructor_id == user_id or v.submission_id in gone_submission_ids)
+        _drop(self.notifications, lambda v: v.user_id == user_id)
         self.users.pop(user_id, None)
 
     def add_notebook(self, title: str, user_id: str = "demo-user") -> Notebook:

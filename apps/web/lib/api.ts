@@ -12,6 +12,7 @@ import type {
   ClassAnalyticsResponse,
   ClassAssignmentsResponse,
   ClassroomClass,
+  CommentsResponse,
   ConnectorType,
   EvalReport,
   ImportList,
@@ -22,7 +23,10 @@ import type {
   MyAssignmentsResponse,
   MyClassesResponse,
   Notebook,
+  NotebookComment,
   NotebookShare,
+  Notification,
+  NotificationsResponse,
   Plan,
   PlanTier,
   QuestionPaper,
@@ -34,6 +38,7 @@ import type {
   SolveResponse,
   SolveStep,
   Subscription,
+  SubmissionFeedback,
   SubscribeResult,
   TrendPoint,
   UploadResult,
@@ -400,4 +405,41 @@ export function getClassAnalytics(classId: string): Promise<ClassAnalyticsRespon
 
 export function setUserRole(userId: string, role: "student" | "instructor" | "admin"): Promise<AuthUser> {
   return post<AuthUser>(`/admin/users/${userId}/role`, { role });
+}
+
+// ── Phase 9: Discussions, instructor feedback, notifications ──
+export function postNotebookComment(notebookId: string, body: string, parentId?: string | null): Promise<NotebookComment> {
+  return post<NotebookComment>(`/notebooks/${notebookId}/comments`, { body, parent_id: parentId ?? null });
+}
+
+export function listNotebookComments(notebookId: string): Promise<CommentsResponse> {
+  return get<CommentsResponse>(`/notebooks/${notebookId}/comments`);
+}
+
+export function addSubmissionFeedback(
+  submissionId: string,
+  feedback: string,
+  overrideScore?: number | null,
+): Promise<SubmissionFeedback> {
+  return post<SubmissionFeedback>(`/submissions/${submissionId}/feedback`, {
+    feedback,
+    override_score: overrideScore ?? null,
+  });
+}
+
+export function getSubmissionFeedback(submissionId: string): Promise<SubmissionFeedback | { feedback: null }> {
+  return get<SubmissionFeedback | { feedback: null }>(`/submissions/${submissionId}/feedback`);
+}
+
+export function listNotifications(unreadOnly = false): Promise<NotificationsResponse> {
+  const qs = unreadOnly ? "?unread_only=true" : "";
+  return get<NotificationsResponse>(`/notifications${qs}`);
+}
+
+export function markNotificationRead(notificationId: string): Promise<Notification> {
+  return post<Notification>(`/notifications/${notificationId}/read`, {});
+}
+
+export function markAllNotificationsRead(): Promise<{ ok: boolean; marked_read: number }> {
+  return post<{ ok: boolean; marked_read: number }>(`/notifications/read-all`, {});
 }

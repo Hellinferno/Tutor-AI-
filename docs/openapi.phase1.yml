@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
-  title: StudyLab Phase 0-8 API
-  version: 0.8.0
+  title: StudyLab Phase 0-9 API
+  version: 0.9.0
 servers:
   - url: /v1
 paths:
@@ -215,3 +215,22 @@ paths:
   /assignments/{assignment_id}/submissions:
     get:
       summary: List all submissions for an assignment (instructor only)
+  /notebooks/{notebook_id}/comments:
+    get:
+      summary: List discussion comments on a notebook (owner or shared user)
+    post:
+      summary: Post a comment on a notebook (owner or shared user); notifies the others
+  /submissions/{submission_id}/feedback:
+    get:
+      summary: Get the latest instructor feedback on a submission (instructor or the student)
+    post:
+      summary: Add feedback (and optional grade override) on a submission (instructor only); notifies student
+  /notifications:
+    get:
+      summary: List the authenticated user's notifications (unread_only=true filters to unread)
+  /notifications/{notification_id}/read:
+    post:
+      summary: Mark a single notification as read (must be the recipient)
+  /notifications/read-all:
+    post:
+      summary: Mark every unread notification for the authenticated user as read

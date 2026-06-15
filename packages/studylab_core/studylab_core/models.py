@@ -18,6 +18,14 @@ MeteredAction = Literal["ask", "solve", "quiz", "paper", "artifact", "source_imp
 RoleType = Literal["student", "instructor", "admin"]
 ShareRole = Literal["viewer", "editor"]
 AssignmentKind = Literal["quiz", "paper"]
+NotificationKind = Literal[
+    "notebook_shared",
+    "assignment_created",
+    "submission_received",
+    "submission_graded",
+    "comment_posted",
+    "class_enrolled",
+]
 
 
 def utc_now() -> str:
@@ -421,3 +429,41 @@ class AssignmentSubmission:
     student_id: str
     attempt_id: str
     submitted_at: str = field(default_factory=utc_now)
+
+
+# ── Phase 9: Discussions, submission feedback, notifications ─────────────
+
+@dataclass
+class Comment:
+    """A discussion comment on a notebook. Threaded via optional parent_id."""
+
+    id: str
+    notebook_id: str
+    author_id: str
+    body: str
+    parent_id: str | None = None
+    created_at: str = field(default_factory=utc_now)
+
+
+@dataclass
+class SubmissionFeedback:
+    """Instructor feedback (and optional grade override) on a student's submission."""
+
+    id: str
+    submission_id: str
+    instructor_id: str
+    feedback: str
+    override_score: float | None = None  # if set, replaces the auto-graded score
+    created_at: str = field(default_factory=utc_now)
+
+
+@dataclass
+class Notification:
+    """A row dropped into a user's inbox when something involving them happens."""
+
+    id: str
+    user_id: str
+    kind: NotificationKind
+    payload: dict[str, Any] = field(default_factory=dict)
+    read_at: str | None = None
+    created_at: str = field(default_factory=utc_now)

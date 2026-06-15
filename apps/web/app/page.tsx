@@ -3,10 +3,12 @@ import { ArtifactPanel } from "../components/artifact-panel";
 import { AuthPanel } from "../components/auth-panel";
 import { ClassroomsPanel } from "../components/classrooms-panel";
 import { ConnectorsPanel } from "../components/connectors-panel";
+import { DiscussionsPanel } from "../components/discussions-panel";
 import { MetricsPanel } from "../components/metrics-panel";
 import { MultiAgentPanel } from "../components/multi-agent-panel";
 import { NotebookBar } from "../components/notebook-bar";
 import { NotebookChat } from "../components/notebook-chat";
+import { NotificationsPanel } from "../components/notifications-panel";
 import { PaperPanel } from "../components/paper-panel";
 import { PricingPanel } from "../components/pricing-panel";
 import { QuizPanel } from "../components/quiz-panel";
@@ -29,8 +31,10 @@ export default function Page() {
         </div>
         <nav className="nav">
           <a href="#account">Account</a>
+          <a href="#notifications">Inbox</a>
           <a href="#share">Sharing</a>
           <a href="#classes">Classrooms</a>
+          <a href="#discuss">Discussion</a>
           <a href="#sources">Sources</a>
           <a href="#connectors">Connectors</a>
           <a href="#ask">Ask</a>
@@ -53,16 +57,18 @@ export default function Page() {
         <NotebookProvider>
           <header className="topbar">
             <div>
-              <p className="eyebrow">Phase 1–8</p>
-              <h2>NotebookLM-inspired RAG with teaching, quizzes, papers, revision, connectors, multi-agent tutoring, accounts, observability, sharing &amp; classrooms</h2>
+              <p className="eyebrow">Phase 1–9</p>
+              <h2>NotebookLM-inspired RAG with teaching, quizzes, papers, revision, connectors, multi-agent tutoring, accounts, observability, sharing, classrooms, discussions &amp; notifications</h2>
             </div>
             <NotebookBar />
           </header>
 
           <div className="grid">
             <AuthPanel />
+            <NotificationsPanel />
             <SharePanel />
             <ClassroomsPanel />
+            <DiscussionsPanel />
             <SourcePanel />
             <ConnectorsPanel />
             <NotebookChat />

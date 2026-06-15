@@ -495,6 +495,39 @@ Weak topics are aggregated from the per-attempt eval reports across all submissi
 
 ---
 
+## Phase 9 endpoints — discussions, instructor feedback & notifications
+
+All Phase 9 routes act as **the logged-in user** (bearer token, else `401`). Comments are visible to
+the notebook owner and any shared user; submission feedback can only be written by the class's
+instructor (or admin); each user can only read/mark their own notifications.
+
+### `POST /v1/notebooks/{id}/comments`  ·  `GET /v1/notebooks/{id}/comments`
+Post or list comments on a notebook (owner or shared viewer/editor). Posting emits a
+`comment_posted` notification to every other user with notebook access.
+Body for POST: `{ "body": "…", "parent_id": "<cmt_id>" | null }`. Empty body → `400`. Body cap 8000 chars.
+Listing returns `{ "comments": [{id, notebook_id, author_id, author_email, body, parent_id, created_at}…] }`
+sorted oldest-first.
+
+### `POST /v1/submissions/{id}/feedback`  *(class instructor or admin only)*
+Body `{ "feedback": "…", "override_score": 8.5 | null }`. If `override_score` is set it must be in
+`[0, max_score]` and **replaces** the auto-graded score in `list_assignment_submissions` and
+`class_analytics`. Adding feedback emits a `submission_graded` notification to the student.
+
+### `GET /v1/submissions/{id}/feedback`  *(instructor, the submitting student, or admin)*
+Returns the latest feedback row, or `{ "feedback": null }` if none yet.
+
+### `GET /v1/notifications`  ·  `?unread_only=true`
+`{ "notifications": [Notification…], "unread_count": N }` for the authenticated user, newest first.
+Notification kinds: `notebook_shared`, `assignment_created`, `submission_received`,
+`submission_graded`, `comment_posted`, `class_enrolled`. Each row carries a `payload` dict with the
+context needed to render and link the event (e.g. `notebook_id`, `class_id`, `assignment_id`).
+
+### `POST /v1/notifications/{id}/read`  ·  `POST /v1/notifications/read-all`
+Mark a single notification (must be yours, else `403`) or every unread row as read. Returns the
+updated row or `{ "ok": true, "marked_read": N }`.
+
+---
+
 ## Error format
 ```json
 { "error": { "code": "not_found" | "bad_request", "message": "…" } }

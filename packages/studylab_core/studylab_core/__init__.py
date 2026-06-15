@@ -22,6 +22,7 @@ from .rag import RagEngine
 from .ratelimit import RateLimiter, RateLimitError, make_rate_limiter_from_env
 from .retrieval import HybridRetriever, QdrantHybridSearchAdapter
 from .revision import RepetitionEngine
+from .social import SocialEngine
 from .solver import SolverEngine
 from .store import InMemoryStudyLabStore
 from .store_sqlite import SqliteStudyLabStore, make_store_from_env
@@ -59,6 +60,7 @@ __all__ = [
     "RateLimiter",
     "RateLimitError",
     "RepetitionEngine",
+    "SocialEngine",
     "SolverEngine",
     "SourceConnectorEngine",
     "SqliteStudyLabStore",

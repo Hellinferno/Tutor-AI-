@@ -290,3 +290,40 @@ export interface AssignmentSubmission {
   attempt_id: string;
   submitted_at: string;
 }
+
+// ── Phase 9: discussions, feedback, notifications ──
+
+export type NotificationKind =
+  | "notebook_shared"
+  | "assignment_created"
+  | "submission_received"
+  | "submission_graded"
+  | "comment_posted"
+  | "class_enrolled";
+
+export interface Comment {
+  id: string;
+  notebook_id: string;
+  author_id: string;
+  body: string;
+  parent_id: string | null;
+  created_at: string;
+}
+
+export interface SubmissionFeedback {
+  id: string;
+  submission_id: string;
+  instructor_id: string;
+  feedback: string;
+  override_score: number | null;
+  created_at: string;
+}
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  kind: NotificationKind;
+  payload: Record<string, unknown>;
+  read_at: string | null;
+  created_at: string;
+}

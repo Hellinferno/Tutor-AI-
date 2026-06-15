@@ -32,6 +32,9 @@ class ClassroomEngine:
     def __init__(self, store: InMemoryStudyLabStore, eval_engine: EvalEngine) -> None:
         self.store = store
         self.eval = eval_engine
+        # Set by StudyLabAPI after construction so enroll/assign/submit can emit
+        # Phase 9 notifications. None during pure-engine unit tests.
+        self.social = None
 
     # ── Class CRUD ──────────────────────────────────────────────────────
 
@@ -99,7 +102,10 @@ class ClassroomEngine:
             class_id=cls.id,
             student_id=student_id,
         )
-        return self.store.to_plain(self.store.add_enrollment(enrollment))
+        result = self.store.to_plain(self.store.add_enrollment(enrollment))
+        if self.social is not None:
+            self.social.emit_class_enrolled(cls.instructor_id, student_id, cls.id)
+        return result
 
     def list_roster(self, instructor_id: str, class_id: str) -> dict[str, Any]:
         cls = self._require_instructor_class(instructor_id, class_id)
@@ -152,7 +158,10 @@ class ClassroomEngine:
             title=title.strip(),
             due_at=due_at,
         )
-        return self.store.add_assignment(assignment)
+        result = self.store.add_assignment(assignment)
+        if self.social is not None:
+            self.social.emit_assignment_created(instructor_id, cls.id, assignment.id)
+        return result
 
     def list_assignments_for_class(self, user_id: str, class_id: str) -> dict[str, Any]:
         cls = self.store.require_class(class_id)
@@ -206,6 +215,13 @@ class ClassroomEngine:
             attempt_id=attempt.id,
         )
         self.store.add_submission(submission)
+        if self.social is not None:
+            self.social.emit_submission_received(
+                instructor_id=cls.instructor_id,
+                student_id=student_id,
+                assignment_id=assignment.id,
+                submission_id=submission.id,
+            )
         return {
             "submission": self.store.to_plain(submission),
             "attempt": self.store.to_plain(attempt),
@@ -218,15 +234,21 @@ class ClassroomEngine:
         for sub in self.store.submissions_for_assignment(assignment_id):
             attempt = self.store.attempts.get(sub.attempt_id)
             student = self.store.users.get(sub.student_id)
+            feedback = self.store.feedback_for_submission(sub.id)
+            auto_score = getattr(attempt, "total_score", 0.0)
+            override = getattr(feedback, "override_score", None) if feedback is not None else None
             rows.append(
                 {
                     "submission_id": sub.id,
                     "student_id": sub.student_id,
                     "email": getattr(student, "email", None),
                     "submitted_at": sub.submitted_at,
-                    "total_score": getattr(attempt, "total_score", 0.0),
+                    "total_score": override if override is not None else auto_score,
+                    "auto_score": auto_score,
                     "max_score": getattr(attempt, "max_score", 0.0),
                     "attempt_id": sub.attempt_id,
+                    "has_feedback": feedback is not None,
+                    "feedback_preview": (feedback.feedback[:160] if feedback else None),
                 }
             )
         return {
@@ -253,7 +275,10 @@ class ClassroomEngine:
                 attempt = self.store.attempts.get(s.attempt_id)
                 if attempt is None or attempt.max_score <= 0:
                     continue
-                scored.append(round(attempt.total_score / attempt.max_score * 100, 1))
+                feedback = self.store.feedback_for_submission(s.id)
+                override = getattr(feedback, "override_score", None) if feedback is not None else None
+                final = override if override is not None else attempt.total_score
+                scored.append(round(final / attempt.max_score * 100, 1))
                 try:
                     report = self.eval.generate_report(s.attempt_id)
                     for t in report.weak_topics:

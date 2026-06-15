@@ -10,6 +10,7 @@ from .classrooms import ClassroomEngine
 from .connectors import SourceConnectorEngine
 from .eval import EvalEngine
 from .metrics import MetricsCollector
+from .social import SocialEngine
 from .models import (
     ArtifactType,
     AssignmentKind,
@@ -63,6 +64,10 @@ class StudyLabAPI:
         self.metrics = MetricsCollector()
         # Phase 8 engine (classrooms, assignments, class analytics)
         self.classrooms = ClassroomEngine(self.store, self.eval)
+        # Phase 9 engine (discussions, instructor feedback, notifications).
+        # Engines that emit notifications hold a reference to this one.
+        self.social = SocialEngine(self.store)
+        self.classrooms.social = self.social
 
     def create_notebook(self, title: str, user_id: str = "demo-user") -> dict[str, Any]:
         return self.store.to_plain(self.rag.create_notebook(title=title, user_id=user_id))
@@ -474,6 +479,7 @@ class StudyLabAPI:
             existing.role = role
             self.store.remove_share(existing.id)
             self.store.add_share(existing)
+            self.social.emit_notebook_shared(owner_id, target.id, notebook_id, role)
             return self.store.to_plain(existing)
         share = NotebookShare(
             id=self.store.next_id("share"),
@@ -483,7 +489,9 @@ class StudyLabAPI:
             shared_with_email=target.email,
             role=role,
         )
-        return self.store.to_plain(self.store.add_share(share))
+        result = self.store.to_plain(self.store.add_share(share))
+        self.social.emit_notebook_shared(owner_id, target.id, notebook_id, role)
+        return result
 
     def unshare_notebook(self, owner_id: str, notebook_id: str, share_id: str) -> dict[str, Any]:
         notebook = self.store.require_notebook(notebook_id)
@@ -591,6 +599,54 @@ class StudyLabAPI:
 
     def class_analytics(self, instructor_id: str, class_id: str) -> dict[str, Any]:
         return self.classrooms.class_analytics(instructor_id, class_id)
+
+    # ── Phase 9: Discussions, instructor feedback, notifications ─────────
+
+    def post_notebook_comment(
+        self,
+        author_id: str,
+        notebook_id: str,
+        body: str,
+        parent_id: str | None = None,
+    ) -> dict[str, Any]:
+        self.authorize_notebook(author_id, notebook_id)
+        return self.store.to_plain(self.social.post_comment(author_id, notebook_id, body, parent_id))
+
+    def list_notebook_comments(self, reader_id: str, notebook_id: str) -> dict[str, Any]:
+        self.authorize_notebook(reader_id, notebook_id)
+        comments = self.social.list_comments(notebook_id)
+        # Decorate with author email for the UI; we don't store it on the row to keep them lean.
+        rows: list[dict[str, Any]] = []
+        for c in comments:
+            author = self.store.users.get(c.author_id)
+            row = self.store.to_plain(c)
+            row["author_email"] = getattr(author, "email", None)
+            rows.append(row)
+        return {"comments": rows}
+
+    def add_submission_feedback(
+        self,
+        instructor_id: str,
+        submission_id: str,
+        feedback: str,
+        override_score: float | None = None,
+    ) -> dict[str, Any]:
+        return self.store.to_plain(
+            self.social.add_feedback(instructor_id, submission_id, feedback, override_score)
+        )
+
+    def get_submission_feedback(self, requester_id: str, submission_id: str) -> dict[str, Any]:
+        fb = self.social.get_feedback(requester_id, submission_id)
+        return self.store.to_plain(fb) if fb is not None else {"feedback": None}
+
+    def list_notifications(self, user_id: str, unread_only: bool = False) -> dict[str, Any]:
+        return self.social.list_notifications(user_id, unread_only=unread_only)
+
+    def mark_notification_read(self, user_id: str, notification_id: str) -> dict[str, Any]:
+        return self.social.mark_read(user_id, notification_id)
+
+    def mark_all_notifications_read(self, user_id: str) -> dict[str, Any]:
+        return self.social.mark_all_read(user_id)
 
     # ── Phase 5: Observability ────────────────────────────────────────────
 

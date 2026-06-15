@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import {
+  addSubmissionFeedback,
   ApiError,
   createAssignment,
   createClass,
@@ -281,6 +282,9 @@ export function ClassroomsPanel() {
                 <input
                   className="textInput"
                   type="datetime-local"
+                  aria-label="Assignment due date"
+                  title="Due date"
+                  placeholder="Due date"
                   value={assignDue}
                   onChange={(e) => setAssignDue(e.target.value)}
                 />
@@ -328,9 +332,22 @@ export function ClassroomsPanel() {
                   <strong>{s.email ?? s.student_id.slice(0, 8)}</strong>
                   <span>
                     {Math.round((s.total_score / Math.max(s.max_score, 1)) * 1000) / 10}% ({s.total_score}/{s.max_score})
+                    {typeof s.auto_score === "number" && s.auto_score !== s.total_score && (
+                      <> · <em>auto {s.auto_score}/{s.max_score}</em></>
+                    )}
                     {" · "}
                     {new Date(s.submitted_at).toLocaleString()}
+                    {s.has_feedback && <> · feedback ✓</>}
                   </span>
+                  <SubmissionFeedbackForm
+                    submissionId={s.submission_id}
+                    maxScore={s.max_score}
+                    onSaved={async () => {
+                      if (submissions) {
+                        setSubmissions(await listAssignmentSubmissions(submissions.assignment.id));
+                      }
+                    }}
+                  />
                 </div>
               ))}
             </div>
@@ -367,5 +384,84 @@ export function ClassroomsPanel() {
 
       {error && <small className="errorText">{error}</small>}
     </section>
+  );
+}
+
+function SubmissionFeedbackForm({
+  submissionId,
+  maxScore,
+  onSaved,
+}: {
+  submissionId: string;
+  maxScore: number;
+  onSaved: () => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [feedback, setFeedback] = useState("");
+  const [override, setOverride] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save() {
+    if (!feedback.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const parsed = override.trim() ? Number(override) : null;
+      if (parsed !== null && (Number.isNaN(parsed) || parsed < 0 || parsed > maxScore)) {
+        setError(`Override must be between 0 and ${maxScore}.`);
+        return;
+      }
+      await addSubmissionFeedback(submissionId, feedback.trim(), parsed);
+      setFeedback("");
+      setOverride("");
+      setOpen(false);
+      await onSaved();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Couldn't save feedback.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button type="button" className="linkBtn" onClick={() => setOpen(true)}>
+        add feedback
+      </button>
+    );
+  }
+
+  return (
+    <div className="spaced">
+      <input
+        className="textInput"
+        placeholder="Feedback for the student…"
+        aria-label="Feedback text"
+        value={feedback}
+        onChange={(e) => setFeedback(e.target.value)}
+        maxLength={8000}
+      />
+      <input
+        className="textInput"
+        type="number"
+        min={0}
+        max={maxScore}
+        step={0.5}
+        placeholder={`Override score (0–${maxScore}, optional)`}
+        aria-label="Override score"
+        value={override}
+        onChange={(e) => setOverride(e.target.value)}
+      />
+      <div className="inlineForm">
+        <button type="button" className="submitBtn" onClick={save} disabled={busy || !feedback.trim()}>
+          Save feedback
+        </button>
+        <button type="button" className="linkBtn" onClick={() => setOpen(false)} disabled={busy}>
+          cancel
+        </button>
+      </div>
+      {error && <small className="errorText">{error}</small>}
+    </div>
   );
 }

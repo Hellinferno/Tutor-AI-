@@ -12,7 +12,7 @@ The project's quality gate: what runs, what it proves, and the Phase 1–7 accep
 
 | Command | What it checks | Current result |
 |---|---|---|
-| `python -m unittest discover tests` | 171 unit/integration tests | ✅ 171 passed |
+| `python -m unittest discover tests` | 190 unit/integration tests | ✅ 190 passed |
 | `python packages/eval/run_eval.py` | solver verification gate | ✅ 15 cases, `false_verified_rate=0` |
 | `python -m compileall packages services` | every module byte‑compiles (per [Instructions/12](../Instructions/12-testing-strategy.md)) | ✅ clean |
 | `cd apps/web && npm run build` | web compiles + type‑checks + prerenders | ✅ green (interactive app) |
@@ -31,7 +31,7 @@ push — see [.circleci/config.yml](../.circleci/config.yml).
 
 ---
 
-## The test suite (171 tests)
+## The test suite (190 tests)
 
 ### `tests/test_phase1_core.py` — 12 tests
 - **Chunking**: offsets are stable (a chunk's `[start:end]` slice reproduces its text).
@@ -325,3 +325,30 @@ join codes, assignments, submissions, and per-class analytics.
 single-user demo experience (no auth, no classes) is unchanged. Remaining later work is unchanged:
 native mobile, horizontal-scaling infra, OAuth/SSO, and reset-email delivery —
 see [11-current-status.md](11-current-status.md).
+
+---
+
+## Phase 9 acceptance gate (discussions, instructor feedback & notifications)
+
+Phase 9 makes the Phase 7–8 multi-user product feel connected: comments on shared notebooks,
+instructor feedback on submissions, and an inbox of notifications for every multi-user event.
+
+| Gate criterion | Status |
+|---|---|
+| Notebook comments visible only to access holders | ✅ (`PermissionError` for strangers; viewer share can post + read) |
+| Empty/oversized comment bodies rejected | ✅ (`ValueError`) |
+| Posting a comment notifies every other access holder | ✅ (`comment_posted`; author is never their own recipient) |
+| Submission feedback is instructor‑only | ✅ (student or stranger → `PermissionError`) |
+| Override score bounded and used downstream | ✅ (`[0, max_score]`; replaces the auto score in list + analytics) |
+| Feedback notifies the student | ✅ (`submission_graded`) |
+| Share / enroll / assign / submit emit notifications | ✅ (`notebook_shared`, `class_enrolled`, `assignment_created`, `submission_received`) |
+| You can only mark your own notifications read | ✅ (`PermissionError` otherwise) |
+| `mark_all_read` zeroes the unread count | ✅ |
+| Persistence | ✅ (comments, feedback, notifications survive SQLite reopen) |
+| Cascades | ✅ (deleting an owner drops the notebook's comments; deleting a student drops their feedback rows) |
+| Tests pass | ✅ 19 Phase 9 tests covering comments, feedback, notifications, and persistence/cascades |
+
+➡️ **The Phase 9 gate passes.** Comments, feedback, and notification routes require a logged-in
+user; the single-user demo experience (no auth, no inbox) is unchanged. Remaining later work is
+unchanged: native mobile, horizontal-scaling infra, OAuth/SSO, and reset-email delivery — see
+[11-current-status.md](11-current-status.md).

@@ -434,8 +434,11 @@ export interface SubmissionRow {
   email: string | null;
   submitted_at: string;
   total_score: number;
+  auto_score?: number;
   max_score: number;
   attempt_id: string;
+  has_feedback?: boolean;
+  feedback_preview?: string | null;
 }
 
 export interface AssignmentSubmissionsResponse {
@@ -462,6 +465,53 @@ export interface ClassAnalyticsResponse {
   overall_avg_percentage: number | null;
   per_assignment: AssignmentAnalyticsRow[];
   top_weak_topics: string[];
+}
+
+// ── Phase 9: discussions, feedback, notifications ──
+
+export type NotificationKind =
+  | "notebook_shared"
+  | "assignment_created"
+  | "submission_received"
+  | "submission_graded"
+  | "comment_posted"
+  | "class_enrolled";
+
+export interface NotebookComment {
+  id: string;
+  notebook_id: string;
+  author_id: string;
+  author_email: string | null;
+  body: string;
+  parent_id: string | null;
+  created_at: string;
+}
+
+export interface CommentsResponse {
+  comments: NotebookComment[];
+}
+
+export interface SubmissionFeedback {
+  id: string;
+  submission_id: string;
+  instructor_id: string;
+  feedback: string;
+  override_score: number | null;
+  created_at: string;
+}
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  kind: NotificationKind;
+  payload: Record<string, unknown>;
+  read_at: string | null;
+  created_at: string;
+}
+
+export interface NotificationsResponse {
+  notifications: Notification[];
+  unread_count: number;
 }
 
 export interface AuthResult {

@@ -144,7 +144,7 @@ Phase 7 makes StudyLab multi-user:
 > you; a viewer can't modify someone else's sources.
 
 ### 12. Instructors can run classes
-The newest layer (Phase 8) turns the *instructor* role into a real teaching surface:
+Phase 8 turns the *instructor* role into a real teaching surface:
 - **Create a class** as an instructor — you get a short **join code** (like `ABC123`) to share with
   your students.
 - **Students join** with the code in one click; the instructor sees the **roster**.
@@ -157,6 +157,22 @@ The newest layer (Phase 8) turns the *instructor* role into a real teaching surf
 
 > 🟢 **Why it matters:** students get a single place to see what they owe; instructors get an
 > auto‑graded class with weak‑topic insights without leaving Tutor‑AI for a spreadsheet.
+
+### 13. Discussion, feedback, and a notifications inbox
+The newest layer (Phase 9) makes the multi‑user product *feel* connected:
+- **Threaded discussion comments** on any notebook — everyone the notebook is shared with (and the
+  owner) can post, ask follow‑up questions, or trade study notes in one place.
+- **Instructor feedback on submissions** — beside the auto‑grade, the instructor can write a
+  personal note and (optionally) **override the score**. The override wins in submission listings
+  and class analytics, so the instructor's grade is always the final one.
+- **Notifications inbox** — when someone shares a notebook with you, joins your class, posts an
+  assignment, submits one of yours, leaves you feedback, or comments on a notebook you can see,
+  a row drops into your inbox. You can mark items read one‑at‑a‑time or "mark all read."
+
+> 🟢 **Why it matters:** sharing a notebook was already possible; commenting on it makes it a
+> conversation. Auto‑grading was already there; instructor feedback makes the grade *yours*.
+> And the inbox means you stop having to refresh classroom + sharing pages just to see what
+> changed.
 
 ---
 
@@ -173,7 +189,7 @@ The newest layer (Phase 8) turns the *instructor* role into a real teaching surf
 
 ## What's built right now (and what isn't)
 
-✅ **Built and working today** (Phase 0 → Phase 8): notebooks, source upload, source guides, grounded
+✅ **Built and working today** (Phase 0 → Phase 9): notebooks, source upload, source guides, grounded
 answers with citations, honest refusal, verified math/finance/code solving, study artifacts, Notion
 export, durable saving of your data, the teaching whiteboard, quizzes, question papers, verified
 answer keys, auto‑graded reports, spaced‑repetition revision, a per‑topic mastery model, progress
@@ -181,9 +197,10 @@ analytics, voice input/output, the website / YouTube / audio / Google Docs conne
 teaching, Free/Scholar/Pro plans with usage metering, real accounts (login) with per‑user privacy and
 a system‑health dashboard, full account self‑service (change/reset password, delete account),
 one‑click sample onboarding, production safety rails (rate limits, input caps, CORS), notebook
-sharing (viewer/editor) with a "shared with me" view, student/instructor/admin roles, **plus
-classrooms with join codes, assignments and due dates, submission tracking, and class‑wide
-analytics** — all driven from a working, responsive interactive website.
+sharing (viewer/editor) with a "shared with me" view, student/instructor/admin roles, classrooms
+with join codes, assignments and due dates, submission tracking, class‑wide analytics, **plus
+threaded notebook discussions, instructor feedback on submissions (with optional grade override),
+and a notifications inbox** — all driven from a working, responsive interactive website.
 
 🚧 **Planned for later**: a **native mobile app** (the website is already responsive),
 **horizontal‑scaling** infrastructure, **social login (OAuth/SSO)**, and wiring an **email provider**

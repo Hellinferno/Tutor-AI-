@@ -136,6 +136,15 @@ together:
   admin‑only `POST /v1/admin/users/{id}/role` route promotes users to `instructor` (the env list only
   mints admins). Cascades: deleting an instructor drops their classes/assignments/submissions;
   deleting a student drops their enrollment + submission rows but keeps the class.
+- **Social layer** *(Phase 9)* — [SocialEngine](../packages/studylab_core/studylab_core/social.py)
+  adds the connective tissue: **threaded discussion comments** on notebooks (anyone with access can
+  read/post; `comment_posted` notifies the rest), **instructor feedback** on submissions with an
+  optional grade override that wins over the auto score in both the submissions listing and class
+  analytics (`submission_graded` notifies the student), and a per‑user **notifications inbox** fed
+  by every multi‑user event. Other engines call `emit_*` helpers (or `_notify`) so the originating
+  action is never blocked by a notification failure (best‑effort). The Phase 8
+  `ClassroomEngine` holds an optional `self.social` reference set by `StudyLabAPI` after construction,
+  so enroll/assign/submit emit notifications without circular imports.
 - **NotionExporter** ([notion.py](../packages/studylab_core/studylab_core/notion.py)) — real
   Notion API call + a mock mode for local demos.
 - **Store** — [InMemoryStudyLabStore](../packages/studylab_core/studylab_core/store.py) or
@@ -258,6 +267,7 @@ together:
 | Hardening (Phase 6) | CORS, sliding-window rate limit, input caps, per‑user ownership | `STUDYLAB_CORS_ORIGINS` / `STUDYLAB_RATE_LIMIT` / `STUDYLAB_MAX_SOURCE_CHARS`; rag binds loopback. |
 | Collaboration (Phase 7) | notebook sharing (viewer/editor) + roles (student/instructor/admin) | Share-aware `authorize_notebook`; admin via `STUDYLAB_ADMIN_EMAILS`. |
 | Classrooms (Phase 8) | instructor‑owned classes (join code), assignments (quiz/paper), submissions, per‑class analytics | Admin promotes via `POST /v1/admin/users/{id}/role`; class roster/analytics gated to the owning instructor. |
+| Social layer (Phase 9) | discussion comments on notebooks, instructor feedback (+ optional grade override), notifications inbox | Best‑effort `_notify` from share/enroll/assign/submit/grade/comment events; override score wins in submission listings and class analytics. |
 | Monorepo | pnpm workspaces + Turborepo | [pnpm-workspace.yaml](../pnpm-workspace.yaml), [turbo.json](../turbo.json). |
 | CI | CircleCI | [.circleci/config.yml](../.circleci/config.yml). |
 
